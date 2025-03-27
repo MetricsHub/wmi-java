@@ -1039,6 +1039,9 @@ public class WmiWbemServices implements WindowsRemoteExecutor {
 
 			final WString wszName = new WString(propertyName);
 
+			// According to IWbemClassObject::Put docs, if pVal isn't VT_NULL,
+			// setting Type to 0 directs WMI to infer the CIM type from the VARIANT.
+			// IWbemClassObject::Put docs: https://docs.microsoft.com/en-us/windows/win32/api/wbemcli/nf-wbemcli-iwbemclassobject-put
 			final HRESULT hResult = (HRESULT) WmiComHelper.comInvokerInvokeNativeObject(
 					pWbemClassObject,
 					WBEM_CLASS_OBJECT_PUT_VTABLE_ID,

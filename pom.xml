@@ -7,7 +7,6 @@
 		<version>2</version>
 	</parent>
 
-	<groupId>org.metricshub</groupId>
 	<artifactId>wmi-java</artifactId>
 	<version>1.0.03-SNAPSHOT</version>
 

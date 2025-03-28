@@ -20,7 +20,6 @@ package org.metricshub.wmi.wbem;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
-import org.metricshub.wmi.Utils;
 import com.sun.jna.platform.win32.COM.COMUtils;
 import com.sun.jna.platform.win32.COM.IUnknown;
 import com.sun.jna.platform.win32.COM.Unknown;
@@ -33,13 +32,20 @@ import com.sun.jna.platform.win32.Variant.VARIANT.ByReference;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
-
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.metricshub.wmi.Utils;
 
 public class WmiCimTypeHandler {
 
@@ -52,6 +58,7 @@ public class WmiCimTypeHandler {
 	 * Map of functions that convert WBEM types to Java corresponding class/type
 	 */
 	private static final Map<Integer, Function<ByReference, Object>> CIMTYPE_TO_CONVERTER_MAP;
+
 	static {
 		final Map<Integer, Function<ByReference, Object>> map = new HashMap<>();
 
@@ -103,11 +110,10 @@ public class WmiCimTypeHandler {
 
 	/**
 	 * Convert a CIM_REFERENCE into a String
-	 * @param value CIM_REFERENCE
+	 * @param reference CIM_REFERENCE
 	 * @return a proper String
 	 */
 	static String convertCimReference(final String reference) {
-
 		if (reference == null) {
 			return null;
 		}
@@ -115,21 +121,23 @@ public class WmiCimTypeHandler {
 		// Remove the "\\hostname\namespace:" prefix (i.e. anything before the first colon)
 		final int colonIndex = reference.indexOf(':');
 		return colonIndex > -1 ? reference.substring(colonIndex + 1) : reference;
-
 	}
 
 	/**
 	 * Convert the WBEM SAFEARRAY value type into an array.
 	 *
 	 * @param array Reference to SAFEARRAY
-	 * @param property The Property to retrieve. An Entry with the property name as the key and a set of sub properties to retrieve if exists.
-	 * @return A Map with the property value converted as a Java object, or null if property cannot be retrieved. The key is the property name as defined in the select request. (example: DriveInfo.Name)
+	 * @param property The Property to retrieve. An Entry with the property
+	 * name as the key and a set of sub properties to retrieve if exists.
+	 * @return A Map with the property value converted as a Java object, or null if property cannot be retrieved.
+	 * The key is the property name as defined in the select request.
+	 * (example: DriveInfo.Name)
 	 */
 	static Map<String, Object> convertSafeArray(
-			final ByReference array,
-			final int cimType,
-			final Entry<String, Set<String>> property) {
-
+		final ByReference array,
+		final int cimType,
+		final Entry<String, Set<String>> property
+	) {
 		// Get the SAFEARRAY
 		final SAFEARRAY safeArray = (SAFEARRAY) array.getValue();
 		if (safeArray == null) {
@@ -140,7 +148,7 @@ public class WmiCimTypeHandler {
 
 		// Get the properties of the array
 		final int lowerBound = safeArray.getLBound(0);
-		final int length =  safeArray.getUBound(0) - lowerBound + 1;
+		final int length = safeArray.getUBound(0) - lowerBound + 1;
 
 		// Convert to a Java array
 		final Object[] resultArray = new Object[length];
@@ -154,58 +162,53 @@ public class WmiCimTypeHandler {
 		// did most of the job already, except for CIM_REFERENCE and CIM_DATETIME
 		if (cimType == Wbemcli.CIM_REFERENCE) {
 			return Collections.singletonMap(
-					property.getKey(),
-					Stream.of(resultArray)
-						.map(String.class::cast)
-						.map(WmiCimTypeHandler::convertCimReference)
-						.toArray());
+				property.getKey(),
+				Stream.of(resultArray).map(String.class::cast).map(WmiCimTypeHandler::convertCimReference).toArray()
+			);
 		}
 		if (cimType == Wbemcli.CIM_DATETIME) {
 			return Collections.singletonMap(
-					property.getKey(),
-					Stream.of(resultArray)
-						.map(String.class::cast)
-						.map(Utils::convertCimDateTime)
-						.toArray());
+				property.getKey(),
+				Stream.of(resultArray).map(String.class::cast).map(Utils::convertCimDateTime).toArray()
+			);
 		}
 		if (cimType == Wbemcli.CIM_OBJECT) {
 			if (property.getValue().isEmpty()) {
-				return Collections.singletonMap(property.getKey(), new String[] {CIM_OBJECT_LABEL});
+				return Collections.singletonMap(property.getKey(), new String[] { CIM_OBJECT_LABEL });
 			}
 
 			final Map<String, List<Object>> resulMap = new HashMap<>();
 
 			for (final Object resultValue : resultArray) {
-				final Optional<IWbemClassObject> maybeClassObject =
-						getUnknownWbemClassObject(resultValue);
+				final Optional<IWbemClassObject> maybeClassObject = getUnknownWbemClassObject(resultValue);
 				if (!maybeClassObject.isPresent()) {
 					continue;
 				}
 
-				final Map<String, String> subPropertiesNames =
-						getSubPropertiesNamesFromClass(maybeClassObject.get());
+				final Map<String, String> subPropertiesNames = getSubPropertiesNamesFromClass(maybeClassObject.get());
 
 				try {
-					property.getValue().stream()
-					.map(subProperty -> subPropertiesNames.get(subProperty.toLowerCase()))
-					.forEach(subProperty -> resulMap
-								.computeIfAbsent(
-										buildCimObjectSubPropertyName(property, subProperty),
-										key -> new ArrayList<>())
+					property
+						.getValue()
+						.stream()
+						.map(subProperty -> subPropertiesNames.get(subProperty.toLowerCase()))
+						.forEach(subProperty ->
+							resulMap
+								.computeIfAbsent(buildCimObjectSubPropertyName(property, subProperty), key -> new ArrayList<>())
 								.add(
-										getPropertyValue(
-												maybeClassObject.get(),
-												new AbstractMap.SimpleEntry<String, Set<String>>(
-														subProperty,
-														Collections.emptySet()))
-										.get(subProperty)));
+									getPropertyValue(
+										maybeClassObject.get(),
+										new AbstractMap.SimpleEntry<String, Set<String>>(subProperty, Collections.emptySet())
+									)
+										.get(subProperty)
+								)
+						);
 				} finally {
 					maybeClassObject.get().Release();
 				}
 			}
 
-			return resulMap.entrySet().stream()
-					.collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().toArray()));
+			return resulMap.entrySet().stream().collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().toArray()));
 		}
 
 		// Default: return the array straight away
@@ -216,42 +219,46 @@ public class WmiCimTypeHandler {
 	 * Convert the wanted values in the CIM Object structure into a Map.
 	 *
 	 * @param value The value of the property.
-	 * @param property The CIM Object Properties to retrieve.An Entry with the CIM Object Class name as the key and a set of sub properties.
-	 * @return A Map with the properties from the CIM Object and their Values, converted as a Java object, or null if property cannot be retrieved. The key is the property as defined in the select request. (example: DriveInfo.Name)
+	 * @param property The CIM Object Properties to retrieve.
+	 * An Entry with the CIM Object Class name as the key and a set of sub properties.
+	 * @return A Map with the properties from the CIM Object and their Values,
+	 * converted as a Java object, or null if property cannot be retrieved.
+	 * The key is the property as defined in the select request.
+	 * (example: DriveInfo.Name)
 	 */
-	static Map<String, Object> convertCimObject(
-			final ByReference value,
-			final Entry<String, Set<String>> property) {
-
-		final Optional<IWbemClassObject> maybeClassObject =
-				getUnknownWbemClassObject(value.getValue());
+	static Map<String, Object> convertCimObject(final ByReference value, final Entry<String, Set<String>> property) {
+		final Optional<IWbemClassObject> maybeClassObject = getUnknownWbemClassObject(value.getValue());
 		if (!maybeClassObject.isPresent()) {
-			return property.getValue().stream()
-					.collect(
-							HashMap::new,
-							(map, subProperty) -> map.put(
-									buildCimObjectSubPropertyName(property, subProperty),
-									null),
-							HashMap::putAll);
+			return property
+				.getValue()
+				.stream()
+				.collect(
+					HashMap::new,
+					(map, subProperty) -> map.put(buildCimObjectSubPropertyName(property, subProperty), null),
+					HashMap::putAll
+				);
 		}
 
 		try {
-			final Map<String, String> subPropertiesNames =
-					getSubPropertiesNamesFromClass(maybeClassObject.get());
+			final Map<String, String> subPropertiesNames = getSubPropertiesNamesFromClass(maybeClassObject.get());
 
-			return property.getValue().stream()
-					.map(subProperty -> subPropertiesNames.get(subProperty.toLowerCase()))
-					.collect(
-							HashMap::new,
-							(map, subProperty) -> map.put(
-									buildCimObjectSubPropertyName(property, subProperty),
-									getPropertyValue(
-											maybeClassObject.get(),
-											new AbstractMap.SimpleEntry<String, Set<String>>(
-													subProperty,
-													Collections.emptySet()))
-									.get(subProperty)),
-							HashMap::putAll);
+			return property
+				.getValue()
+				.stream()
+				.map(subProperty -> subPropertiesNames.get(subProperty.toLowerCase()))
+				.collect(
+					HashMap::new,
+					(map, subProperty) ->
+						map.put(
+							buildCimObjectSubPropertyName(property, subProperty),
+							getPropertyValue(
+								maybeClassObject.get(),
+								new AbstractMap.SimpleEntry<String, Set<String>>(subProperty, Collections.emptySet())
+							)
+								.get(subProperty)
+						),
+					HashMap::putAll
+				);
 		} finally {
 			maybeClassObject.get().Release();
 		}
@@ -263,7 +270,6 @@ public class WmiCimTypeHandler {
 	 * @return
 	 */
 	static Map<String, String> getSubPropertiesNamesFromClass(final IWbemClassObject wbemClassObject) {
-
 		String[] names;
 		try {
 			names = wbemClassObject.GetNames(null, 0, null);
@@ -271,10 +277,7 @@ public class WmiCimTypeHandler {
 			names = wbemClassObject.GetNames(null, 0, null);
 		}
 
-		return Stream.of(names)
-				.collect(Collectors.toMap(
-						String::toLowerCase,
-						Function.identity()));
+		return Stream.of(names).collect(Collectors.toMap(String::toLowerCase, Function.identity()));
 	}
 
 	/**
@@ -285,14 +288,8 @@ public class WmiCimTypeHandler {
 	 * @param subProperty The Sub property name in the CIM Object structure.
 	 * @return
 	 */
-	static String buildCimObjectSubPropertyName(
-			final Entry<String, Set<String>> property,
-			final String subProperty) {
-		return new StringBuilder()
-				.append(property.getKey())
-				.append(".")
-				.append(subProperty)
-				.toString();
+	static String buildCimObjectSubPropertyName(final Entry<String, Set<String>> property, final String subProperty) {
+		return new StringBuilder().append(property.getKey()).append(".").append(subProperty).toString();
 	}
 
 	/**
@@ -310,28 +307,31 @@ public class WmiCimTypeHandler {
 		try {
 			final PointerByReference pointerByReference = new PointerByReference();
 
-			final HRESULT hResult = unknown.QueryInterface(
-					new REFIID(IUnknown.IID_IUNKNOWN), pointerByReference);
-			return COMUtils.FAILED(hResult) ?
-					Optional.empty() :
-						Optional.of(new IWbemClassObject(pointerByReference.getValue()));
+			final HRESULT hResult = unknown.QueryInterface(new REFIID(IUnknown.IID_IUNKNOWN), pointerByReference);
+			return COMUtils.FAILED(hResult)
+				? Optional.empty()
+				: Optional.of(new IWbemClassObject(pointerByReference.getValue()));
 		} finally {
 			unknown.Release();
 		}
 	}
 
 	/**
-	 * Convert the specified CIM value into a Java Object depending of its CIM type.
+	 * Convert the specified CIM value into a Java Object depending on its CIM type.
 	 * @param value CIM value (ByReference)
 	 * @param cimType CIM Type
-	 * @param property The Property to retrieve. An Entry with the property name as the key and a set of sub properties to retrieve if exists.
-	 * @return A Map with the property value converted as a Java object, or null if property cannot be retrieved. The key is the property name as defined in the select request. (example: DriveInfo.Name)
+	 * @param property The Property to retrieve. An Entry with the property name
+	 * as the key and a set of sub properties to retrieve if exists.
+	 * @return A Map with the property value converted as a Java object,
+	 * or null if property cannot be retrieved.
+	 * The key is the property name as defined in the select request.
+	 * (example: DriveInfo.Name)
 	 */
 	static Map<String, Object> convert(
-			final ByReference value,
-			final int cimType,
-			final Entry<String, Set<String>> property) {
-
+		final ByReference value,
+		final int cimType,
+		final Entry<String, Set<String>> property
+	) {
 		if (value.getValue() == null) {
 			return Collections.singletonMap(property.getKey(), null);
 		}
@@ -342,27 +342,32 @@ public class WmiCimTypeHandler {
 		}
 
 		if (cimType == Wbemcli.CIM_OBJECT) {
-			return property.getValue().isEmpty() ?
-					Collections.singletonMap(property.getKey(), CIM_OBJECT_LABEL) :
-						convertCimObject(value, property);
+			return property.getValue().isEmpty()
+				? Collections.singletonMap(property.getKey(), CIM_OBJECT_LABEL)
+				: convertCimObject(value, property);
 		}
 
 		return Collections.singletonMap(
-				property.getKey(),
-				CIMTYPE_TO_CONVERTER_MAP.getOrDefault(cimType, v -> "Unsupported type").apply(value));
-
+			property.getKey(),
+			CIMTYPE_TO_CONVERTER_MAP.getOrDefault(cimType, v -> "Unsupported type").apply(value)
+		);
 	}
 
 	/**
 	 * Get the value of the specified property from the specified WbemClassObject
 	 * @see <a href="https://docs.microsoft.com/en-us/windows/win32/api/wbemcli/nf-wbemcli-iwbemclassobject-get">IWbemClassObject::Get method (wbemcli.h)</a>
 	 * @param wbemClassObject WbemClassObject
-	 * @param property The Property to retrieve. An Entry with the property name as the key and a set of sub properties to retrieve if exists.
-	 * @return A Map with the property value converted as a Java object, or null if property cannot be retrieved. The key is the property name as defined in the select request. (example: DriveInfo.Name)
+	 * @param property The Property to retrieve. An Entry with the property name as
+	 * the key and a set of sub properties to retrieve if exists.
+	 * @return A Map with the property value converted as a Java object,
+	 * or null if property cannot be retrieved.
+	 * The key is the property name as defined in the select request.
+	 * (example: DriveInfo.Name)
 	 */
 	public static Map<String, Object> getPropertyValue(
-			final IWbemClassObject wbemClassObject,
-			final Entry<String, Set<String>> property) {
+		final IWbemClassObject wbemClassObject,
+		final Entry<String, Set<String>> property
+	) {
 		try {
 			return getPropertyValueFromWbemObject(wbemClassObject, property);
 		} catch (final Throwable e) {
@@ -372,8 +377,9 @@ public class WmiCimTypeHandler {
 	}
 
 	private static Map<String, Object> getPropertyValueFromWbemObject(
-			final IWbemClassObject wbemClassObject,
-			final Entry<String, Set<String>> property) {
+		final IWbemClassObject wbemClassObject,
+		final Entry<String, Set<String>> property
+	) {
 		final ByReference value = new ByReference();
 		final IntByReference pType = new IntByReference();
 
@@ -382,13 +388,7 @@ public class WmiCimTypeHandler {
 		OleAuto.INSTANCE.VariantInit(value);
 
 		try {
-			final HRESULT hResult = wbemClassObject.Get(
-					property.getKey(),
-					0,
-					value,
-					pType,
-					new IntByReference()
-			);
+			final HRESULT hResult = wbemClassObject.Get(property.getKey(), 0, value, pType, new IntByReference());
 			if (COMUtils.FAILED(hResult)) {
 				return Collections.singletonMap(property.getKey(), null);
 			}
@@ -399,7 +399,6 @@ public class WmiCimTypeHandler {
 			}
 
 			return convert(value, pType.getValue(), property);
-
 		} finally {
 			try {
 				OleAuto.INSTANCE.VariantClear(value);
@@ -408,5 +407,4 @@ public class WmiCimTypeHandler {
 			}
 		}
 	}
-
 }

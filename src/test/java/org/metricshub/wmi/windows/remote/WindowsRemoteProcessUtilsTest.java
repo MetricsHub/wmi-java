@@ -11,7 +11,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -34,7 +33,6 @@ class WindowsRemoteProcessUtilsTest {
 
 	@BeforeAll
 	static void initFiles() throws Exception {
-
 		testDir = new File(tempDir, "testDir");
 		testDir.mkdir();
 		Assertions.assertTrue(testDir.exists());
@@ -62,79 +60,116 @@ class WindowsRemoteProcessUtilsTest {
 
 	@Test
 	void testGetWindowsEncodingCharset() throws Exception {
-
 		final int timeout = 1;
 
 		assertEquals(DEFAULT_WINDOWS_CHARSET, WindowsRemoteProcessUtils.getWindowsEncodingCharset(null, timeout));
-		assertEquals(DEFAULT_WINDOWS_CHARSET, WindowsRemoteProcessUtils.getWindowsEncodingCharset(Mockito.mock(WindowsRemoteExecutor.class), -1));
-		assertEquals(DEFAULT_WINDOWS_CHARSET, WindowsRemoteProcessUtils.getWindowsEncodingCharset(Mockito.mock(WindowsRemoteExecutor.class), 0));
-
+		assertEquals(
+			DEFAULT_WINDOWS_CHARSET,
+			WindowsRemoteProcessUtils.getWindowsEncodingCharset(Mockito.mock(WindowsRemoteExecutor.class), -1)
+		);
+		assertEquals(
+			DEFAULT_WINDOWS_CHARSET,
+			WindowsRemoteProcessUtils.getWindowsEncodingCharset(Mockito.mock(WindowsRemoteExecutor.class), 0)
+		);
 
 		// check CodeSet absent from Win32_OperatingSystem
 		{
 			final WindowsRemoteExecutor windowsRemoteExecutor = Mockito.mock(WindowsRemoteExecutor.class);
-			Mockito.doReturn(Collections.emptyList()).when(windowsRemoteExecutor).executeWql("SELECT CodeSet FROM Win32_OperatingSystem", timeout);
+			Mockito
+				.doReturn(Collections.emptyList())
+				.when(windowsRemoteExecutor)
+				.executeWql("SELECT CodeSet FROM Win32_OperatingSystem", timeout);
 
-			assertEquals(DEFAULT_WINDOWS_CHARSET, WindowsRemoteProcessUtils.getWindowsEncodingCharset(windowsRemoteExecutor, timeout));
+			assertEquals(
+				DEFAULT_WINDOWS_CHARSET,
+				WindowsRemoteProcessUtils.getWindowsEncodingCharset(windowsRemoteExecutor, timeout)
+			);
 		}
 		{
 			final WindowsRemoteExecutor windowsRemoteExecutor = Mockito.mock(WindowsRemoteExecutor.class);
-			Mockito.doReturn(Collections.singletonList(Collections.emptyMap())).when(windowsRemoteExecutor).executeWql("SELECT CodeSet FROM Win32_OperatingSystem", timeout);
+			Mockito
+				.doReturn(Collections.singletonList(Collections.emptyMap()))
+				.when(windowsRemoteExecutor)
+				.executeWql("SELECT CodeSet FROM Win32_OperatingSystem", timeout);
 
-			assertEquals(DEFAULT_WINDOWS_CHARSET, WindowsRemoteProcessUtils.getWindowsEncodingCharset(windowsRemoteExecutor, timeout));
+			assertEquals(
+				DEFAULT_WINDOWS_CHARSET,
+				WindowsRemoteProcessUtils.getWindowsEncodingCharset(windowsRemoteExecutor, timeout)
+			);
 		}
 
 		// check CodeSet unknown
 		{
 			final WindowsRemoteExecutor windowsRemoteExecutor = Mockito.mock(WindowsRemoteExecutor.class);
-			Mockito.doReturn(Collections.singletonList(Collections.singletonMap("CodeSet", "999999"))).when(windowsRemoteExecutor).executeWql("SELECT CodeSet FROM Win32_OperatingSystem", timeout);
+			Mockito
+				.doReturn(Collections.singletonList(Collections.singletonMap("CodeSet", "999999")))
+				.when(windowsRemoteExecutor)
+				.executeWql("SELECT CodeSet FROM Win32_OperatingSystem", timeout);
 
-			assertEquals(DEFAULT_WINDOWS_CHARSET, WindowsRemoteProcessUtils.getWindowsEncodingCharset(windowsRemoteExecutor, timeout));
+			assertEquals(
+				DEFAULT_WINDOWS_CHARSET,
+				WindowsRemoteProcessUtils.getWindowsEncodingCharset(windowsRemoteExecutor, timeout)
+			);
 		}
 
 		// check map values
 		{
 			final WindowsRemoteExecutor windowsRemoteExecutor = Mockito.mock(WindowsRemoteExecutor.class);
-			Mockito.doReturn(Collections.singletonList(Collections.singletonMap("CodeSet", "1250"))).when(windowsRemoteExecutor).executeWql("SELECT CodeSet FROM Win32_OperatingSystem", timeout);
+			Mockito
+				.doReturn(Collections.singletonList(Collections.singletonMap("CodeSet", "1250")))
+				.when(windowsRemoteExecutor)
+				.executeWql("SELECT CodeSet FROM Win32_OperatingSystem", timeout);
 
-			assertEquals(Charset.forName("windows-1250"), WindowsRemoteProcessUtils.getWindowsEncodingCharset(windowsRemoteExecutor, timeout));
+			assertEquals(
+				Charset.forName("windows-1250"),
+				WindowsRemoteProcessUtils.getWindowsEncodingCharset(windowsRemoteExecutor, timeout)
+			);
 		}
 	}
 
 	@Test
 	void testCopyLocalFilesToShare() throws Exception {
-
 		clearDirectories();
 		Assertions.assertEquals(0, uncShareDir.listFiles().length);
 		Assertions.assertEquals(0, remoteDir.listFiles().length);
 
 		final String commandFormat = "launch %s; launch %s";
 		final String command = String.format(commandFormat, localFile1.getAbsolutePath(), localFile2.getAbsolutePath());
-		final List<String> localFiles = Stream.of(testDir.listFiles()).map(File::getAbsolutePath).collect(Collectors.toList());
+		final List<String> localFiles = Stream
+			.of(testDir.listFiles())
+			.map(File::getAbsolutePath)
+			.collect(Collectors.toList());
 		final String uncSharePath = uncShareDir.getAbsolutePath();
 		final String remotePath = remoteDir.getAbsolutePath();
 
 		// check arguments
 		Assertions.assertThrows(
-				IllegalArgumentException.class,
-				() -> WindowsRemoteProcessUtils.copyLocalFilesToShare(null, localFiles, uncSharePath, remotePath));
+			IllegalArgumentException.class,
+			() -> WindowsRemoteProcessUtils.copyLocalFilesToShare(null, localFiles, uncSharePath, remotePath)
+		);
 		Assertions.assertThrows(
-				IllegalArgumentException.class,
-				() -> WindowsRemoteProcessUtils.copyLocalFilesToShare(command, localFiles, null, remotePath));
+			IllegalArgumentException.class,
+			() -> WindowsRemoteProcessUtils.copyLocalFilesToShare(command, localFiles, null, remotePath)
+		);
 		Assertions.assertThrows(
-				IllegalArgumentException.class,
-				() -> WindowsRemoteProcessUtils.copyLocalFilesToShare(command, localFiles, uncSharePath, null));
+			IllegalArgumentException.class,
+			() -> WindowsRemoteProcessUtils.copyLocalFilesToShare(command, localFiles, uncSharePath, null)
+		);
 
 		// case localFiles null or empty
+		assertEquals(command, WindowsRemoteProcessUtils.copyLocalFilesToShare(command, null, null, null));
 		assertEquals(
-				command,
-				WindowsRemoteProcessUtils.copyLocalFilesToShare(command, null, null, null));
-		assertEquals(
-				command,
-				WindowsRemoteProcessUtils.copyLocalFilesToShare(command, Collections.emptyList(), null, null));
+			command,
+			WindowsRemoteProcessUtils.copyLocalFilesToShare(command, Collections.emptyList(), null, null)
+		);
 
 		// check copy local files and command update
-		final String actual = WindowsRemoteProcessUtils.copyLocalFilesToShare(command, localFiles, uncSharePath, remotePath);
+		final String actual = WindowsRemoteProcessUtils.copyLocalFilesToShare(
+			command,
+			localFiles,
+			uncSharePath,
+			remotePath
+		);
 
 		Assertions.assertEquals(2, uncShareDir.listFiles().length);
 
@@ -146,15 +181,16 @@ class WindowsRemoteProcessUtilsTest {
 		Assertions.assertEquals(localFile2.getName(), targetUncFile2.getName());
 		Assertions.assertEquals(localFile2.lastModified(), targetUncFile2.lastModified());
 
-		final String expected = String.format(commandFormat,
-				Paths.get(remotePath, localFile1.getName()),
-				Paths.get(remotePath, localFile2.getName()));
+		final String expected = String.format(
+			commandFormat,
+			Paths.get(remotePath, localFile1.getName()),
+			Paths.get(remotePath, localFile2.getName())
+		);
 		Assertions.assertEquals(expected, actual);
 	}
 
 	@Test
 	void testCopyToShare() throws Exception {
-
 		final long localFileTime = localFile1.lastModified();
 
 		clearDirectories();
@@ -164,9 +200,10 @@ class WindowsRemoteProcessUtilsTest {
 		// Case not targetUncPath not exists
 		{
 			final Path remoteFilePath = WindowsRemoteProcessUtils.copyToShare(
-					localFile1.toPath(),
-					uncShareDir.getAbsolutePath(),
-					remoteDir.getAbsolutePath());
+				localFile1.toPath(),
+				uncShareDir.getAbsolutePath(),
+				remoteDir.getAbsolutePath()
+			);
 
 			Assertions.assertNotNull(remoteFilePath);
 			Assertions.assertTrue(remoteFilePath.startsWith(remoteDir.toPath()));
@@ -187,9 +224,10 @@ class WindowsRemoteProcessUtilsTest {
 			(uncShareDir.listFiles()[0]).setLastModified(newLocalFileTime);
 
 			final Path remoteFilePath = WindowsRemoteProcessUtils.copyToShare(
-					localFile1.toPath(),
-					uncShareDir.getAbsolutePath(),
-					remoteDir.getAbsolutePath());
+				localFile1.toPath(),
+				uncShareDir.getAbsolutePath(),
+				remoteDir.getAbsolutePath()
+			);
 
 			Assertions.assertNotNull(remoteFilePath);
 			Assertions.assertTrue(remoteFilePath.startsWith(remoteDir.toPath()));
@@ -204,10 +242,22 @@ class WindowsRemoteProcessUtilsTest {
 
 	@Test
 	void testCaseInsensitiveReplace() {
-		assertEquals("not changed", WindowsRemoteProcessUtils.caseInsensitiveReplace("not changed", "not here", "replaced"));
-		assertEquals("cscript new new", WindowsRemoteProcessUtils.caseInsensitiveReplace("cscript d:\\Test d:\\TEST", "D:\\teSt", "new"));
-		assertEquals("type C:\\1", WindowsRemoteProcessUtils.caseInsensitiveReplace("type c:\\(n).$$$", "C:\\(n).$$$", "C:\\1"));
-		assertEquals("type Agitignore", WindowsRemoteProcessUtils.caseInsensitiveReplace("type Agitignore", ".gitignore", "replaced"));
+		assertEquals(
+			"not changed",
+			WindowsRemoteProcessUtils.caseInsensitiveReplace("not changed", "not here", "replaced")
+		);
+		assertEquals(
+			"cscript new new",
+			WindowsRemoteProcessUtils.caseInsensitiveReplace("cscript d:\\Test d:\\TEST", "D:\\teSt", "new")
+		);
+		assertEquals(
+			"type C:\\1",
+			WindowsRemoteProcessUtils.caseInsensitiveReplace("type c:\\(n).$$$", "C:\\(n).$$$", "C:\\1")
+		);
+		assertEquals(
+			"type Agitignore",
+			WindowsRemoteProcessUtils.caseInsensitiveReplace("type Agitignore", ".gitignore", "replaced")
+		);
 		assertNull(WindowsRemoteProcessUtils.caseInsensitiveReplace(null, "test", "replaced"));
 		assertEquals("not changed", WindowsRemoteProcessUtils.caseInsensitiveReplace("not changed", null, "replaced"));
 		assertEquals("not changed", WindowsRemoteProcessUtils.caseInsensitiveReplace("not changed", "not here", null));

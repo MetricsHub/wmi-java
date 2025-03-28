@@ -4,18 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 
 class TimeoutHelperTest {
 
@@ -29,7 +27,6 @@ class TimeoutHelperTest {
 
 	@BeforeAll
 	static void setup() {
-
 		// Create a fake time counter
 		// Each time Utils.getCurrentTimeMillis() is called, we increment the time counter by 1 ms
 		// Each time Utils.sleep(millis) is called, we increment the time counter by the specified number
@@ -37,32 +34,40 @@ class TimeoutHelperTest {
 		// Other benefit: it runs faster as we don't really wait
 		mockedUtils = Mockito.mockStatic(Utils.class);
 
-		mockedUtils.when(Utils::getCurrentTimeMillis).thenAnswer(new Answer<Long>() {
-			@Override
-			public Long answer(InvocationOnMock invocation) throws Throwable {
-				return time.incrementAndGet();
-			}
-		});
+		mockedUtils
+			.when(Utils::getCurrentTimeMillis)
+			.thenAnswer(
+				new Answer<Long>() {
+					@Override
+					public Long answer(InvocationOnMock invocation) throws Throwable {
+						return time.incrementAndGet();
+					}
+				}
+			);
 
-		mockedUtils.when(() -> Utils.sleep(ArgumentMatchers.anyLong())).thenAnswer(new Answer<Long>() {
-			@Override
-			public Long answer(InvocationOnMock invocation) throws Throwable {
-				return time.addAndGet(invocation.getArgument(0));
-			}
-		});
-
+		mockedUtils
+			.when(() -> Utils.sleep(ArgumentMatchers.anyLong()))
+			.thenAnswer(
+				new Answer<Long>() {
+					@Override
+					public Long answer(InvocationOnMock invocation) throws Throwable {
+						return time.addAndGet(invocation.getArgument(0));
+					}
+				}
+			);
 	}
 
 	@Test
 	void testGetRemainingTime() throws Exception {
-
-		assertThrows(TimeoutException.class, () -> TimeoutHelper.getRemainingTime(100, Utils.getCurrentTimeMillis() - 10000, "test 1"));
+		assertThrows(
+			TimeoutException.class,
+			() -> TimeoutHelper.getRemainingTime(100, Utils.getCurrentTimeMillis() - 10000, "test 1")
+		);
 		assertTrue(TimeoutHelper.getRemainingTime(10000, Utils.getCurrentTimeMillis(), "nothing") > 0);
 	}
 
 	@Test
 	void testStagedSleep() throws Exception {
-
 		// Staged sleep returns quickly (less than a second) at the beginning of the wait
 		{
 			long start = Utils.getCurrentTimeMillis();
@@ -80,7 +85,10 @@ class TimeoutHelperTest {
 		}
 
 		// Staged sleep throws a TimeoutException when times out
-		assertThrows(TimeoutException.class, () -> TimeoutHelper.stagedSleep(5000, Utils.getCurrentTimeMillis() - 10000, MESSAGE));
+		assertThrows(
+			TimeoutException.class,
+			() -> TimeoutHelper.stagedSleep(5000, Utils.getCurrentTimeMillis() - 10000, MESSAGE)
+		);
 
 		// TimeoutException contains the message
 		try {

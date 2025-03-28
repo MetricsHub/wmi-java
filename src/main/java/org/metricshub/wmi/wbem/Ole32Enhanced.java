@@ -32,7 +32,6 @@ import com.sun.jna.win32.W32APIOptions;
  * manages to set authentication properly, including for a remote system.
  */
 public interface Ole32Enhanced extends Ole32 {
-
 	Ole32Enhanced INSTANCE = Native.load("Ole32", Ole32Enhanced.class, W32APIOptions.DEFAULT_OPTIONS);
 
 	/**
@@ -124,12 +123,13 @@ public interface Ole32Enhanced extends Ole32 {
 	 *         E_INVALIDARG One or more arguments is invalid.
 	 */
 	HRESULT CoSetProxyBlanket(
-			Pointer pProxy,
-			int dwAuthnSvc,
-			int dwAuthzSvc,
-			LPOLESTR pServerPrincName,
-			int dwAuthnLevel,
-			int dwImpLevel,
-			CoAuthIdentity authInfo,
-			int dwCapabilities);
+		Pointer pProxy,
+		int dwAuthnSvc,
+		int dwAuthzSvc,
+		LPOLESTR pServerPrincName,
+		int dwAuthnLevel,
+		int dwImpLevel,
+		CoAuthIdentity authInfo,
+		int dwCapabilities
+	);
 }

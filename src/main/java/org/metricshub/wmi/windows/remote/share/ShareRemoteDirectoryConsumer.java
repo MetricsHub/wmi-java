@@ -24,7 +24,6 @@ import org.metricshub.wmi.windows.remote.WindowsRemoteExecutor;
 
 @FunctionalInterface
 public interface ShareRemoteDirectoryConsumer<W extends WindowsRemoteExecutor, R, S, T> {
-
 	/**
 	 * Share the remote directory on the host.
 	 *
@@ -33,9 +32,5 @@ public interface ShareRemoteDirectoryConsumer<W extends WindowsRemoteExecutor, R
 	 * @param shareName The Share Name.
 	 * @param timeout Timeout in milliseconds.
 	 */
-	public void apply(
-			final W windowsRemoteExecutor,
-			final R remotePath,
-			final S shareName,
-			final T timeout);
+	void apply(W windowsRemoteExecutor, R remotePath, S shareName, T timeout);
 }

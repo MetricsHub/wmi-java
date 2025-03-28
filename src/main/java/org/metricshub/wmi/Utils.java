@@ -2,6 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
+
 package org.metricshub.wmi;
 
 /*-
@@ -36,7 +37,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
 /**
  * Utility Class (static), to be used anywhere in  Matsya, including in
  * standalone JARs (in CLI mode)
@@ -45,7 +45,7 @@ import java.util.regex.Pattern;
  */
 public class Utils {
 
-	private Utils() { }
+	private Utils() {}
 
 	public static final String EMPTY = "";
 	public static final String NEW_LINE = "\n";
@@ -70,14 +70,14 @@ public class Utils {
 	 * <li>group(2): optional fraction of seconds
 	 * <li>group(3): timezone offset... in minutes (sigh)
 	 */
-	private static final Pattern CIM_DATETIME_PATTERN =
-			Pattern.compile("^([0-9]{14})(?:\\.([0-9]{3,6}))?([+-][0-9]{3})$");
+	private static final Pattern CIM_DATETIME_PATTERN = Pattern.compile(
+		"^([0-9]{14})(?:\\.([0-9]{3,6}))?([+-][0-9]{3})$"
+	);
 
 	/**
 	 * Formatter/Parser of the first part of CIM_DATETIME
 	 */
-	public static final DateTimeFormatter WBEM_CIM_DATETIME_FORMATTER =
-			DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+	public static final DateTimeFormatter WBEM_CIM_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
 	/**
 	 * Check if the required argument is not null.
@@ -138,7 +138,6 @@ public class Utils {
 	 * @return OffsetDateTime instance
 	 */
 	public static OffsetDateTime convertCimDateTime(final String stringValue) {
-
 		if (stringValue == null) {
 			return null;
 		}
@@ -217,7 +216,6 @@ public class Utils {
 	 * @return The content of the file, as a String, or empty string if file doesn't exist
 	 */
 	public static String readText(final Path filePath, final Charset charset) {
-
 		checkNonNull(filePath, "filePath");
 		checkNonNull(charset, "charset");
 
@@ -248,5 +246,4 @@ public class Utils {
 	public static void sleep(final long millis) throws InterruptedException {
 		Thread.sleep(millis);
 	}
-
 }

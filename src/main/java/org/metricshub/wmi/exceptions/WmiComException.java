@@ -32,7 +32,7 @@ public class WmiComException extends WindowsRemoteException {
 		super(message);
 	}
 
-	public WmiComException(final String messageFromat, final Object...args) {
+	public WmiComException(final String messageFromat, final Object... args) {
 		super(messageFromat, args);
 	}
 

@@ -30,7 +30,7 @@ import com.sun.jna.Structure;
  * <p>
  * See https://docs.microsoft.com/en-us/windows/win32/api/wtypesbase/ns-wtypesbase-coauthidentity
  */
-@Structure.FieldOrder({"user", "userLength", "domain", "domainLength", "password", "passwordLength", "flags"})
+@Structure.FieldOrder({ "user", "userLength", "domain", "domainLength", "password", "passwordLength", "flags" })
 public class CoAuthIdentity extends Structure {
 
 	public Pointer user;
@@ -47,7 +47,6 @@ public class CoAuthIdentity extends Structure {
 	 * @param password associated password
 	 */
 	public CoAuthIdentity(final String username, final char[] password) {
-
 		String domain = null;
 		String user = username;
 
@@ -94,6 +93,5 @@ public class CoAuthIdentity extends Structure {
 
 		// Unicode
 		this.flags = 0x2;
-
 	}
 }

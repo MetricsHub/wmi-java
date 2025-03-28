@@ -28,13 +28,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-
 import org.metricshub.wmi.TimeoutHelper;
 import org.metricshub.wmi.Utils;
 import org.metricshub.wmi.WmiHelper;
-import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
 import org.metricshub.wmi.exceptions.ProcessNotFoundException;
 import org.metricshub.wmi.exceptions.WmiComException;
+import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
 import org.metricshub.wmi.wbem.WmiWbemServices;
 
 /**
@@ -43,7 +42,7 @@ import org.metricshub.wmi.wbem.WmiWbemServices;
  */
 public class RemoteProcess {
 
-	private RemoteProcess() { }
+	private RemoteProcess() {}
 
 	private static final String TERMINATE = "Terminate";
 	private static final String CREATE = "Create";
@@ -56,6 +55,7 @@ public class RemoteProcess {
 	 * Map of the possible (and known) ReturnValue of the Win32_Process methods
 	 */
 	private static final Map<Integer, String> METHOD_RETURNVALUE_MAP;
+
 	static {
 		final Map<Integer, String> map = new HashMap<>();
 		map.put(2, "Access denied");
@@ -65,7 +65,6 @@ public class RemoteProcess {
 		map.put(21, "Invalid parameter");
 		METHOD_RETURNVALUE_MAP = Collections.unmodifiableMap(map);
 	}
-
 
 	/**
 	 * Execute the command on the remote
@@ -80,29 +79,32 @@ public class RemoteProcess {
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
 	public static int executeCommand(
-			final String command,
-			final String hostname,
-			final String username,
-			final char[] password,
-			final String workingDirectory,
-			final long timeout
+		final String command,
+		final String hostname,
+		final String username,
+		final char[] password,
+		final String workingDirectory,
+		final long timeout
 	) throws WmiComException, TimeoutException {
-
 		Utils.checkNonNull(command, "command");
 		Utils.checkArgumentNotZeroOrNegative(timeout, "timeout");
 
 		final long start = Utils.getCurrentTimeMillis();
 
 		final String networkResource = WmiHelper.createNetworkResource(hostname, CIMV2_NAMESPACE);
-		try (final WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance(networkResource, username, password)) {
-
+		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance(networkResource, username, password)) {
 			// Execute Win32_Process::Create
 			final Map<String, Object> createInputs = new HashMap<>();
 			createInputs.put("CommandLine", command);
 			if (!Utils.isBlank(workingDirectory)) {
 				createInputs.put("CurrentDirectory", workingDirectory.trim());
 			}
-			final Map<String, Object> createResult = wmiWbemServices.executeMethod(WIN32_PROCESS, WIN32_PROCESS, CREATE, createInputs);
+			final Map<String, Object> createResult = wmiWbemServices.executeMethod(
+				WIN32_PROCESS,
+				WIN32_PROCESS,
+				CREATE,
+				createInputs
+			);
 
 			// Extract ProcessId from the result
 			final Integer processId = (Integer) createResult.get("ProcessId");
@@ -112,7 +114,13 @@ public class RemoteProcess {
 
 			// Wait for the process to complete
 			try {
-				while (existProcess(wmiWbemServices, processId, TimeoutHelper.getRemainingTime(timeout, start, "No time left to check if the process exists"))) {
+				while (
+					existProcess(
+						wmiWbemServices,
+						processId,
+						TimeoutHelper.getRemainingTime(timeout, start, "No time left to check if the process exists")
+					)
+				) {
 					TimeoutHelper.stagedSleep(timeout, start, String.format("Command %s execution has timed out", command));
 				}
 			} catch (final TimeoutException e) {
@@ -122,7 +130,7 @@ public class RemoteProcess {
 				throw e;
 			}
 
-			return  (Integer) createResult.get("ReturnValue");
+			return (Integer) createResult.get("ReturnValue");
 		}
 	}
 
@@ -137,19 +145,12 @@ public class RemoteProcess {
 	 * @throws WmiComException  For any problem encountered with JNA
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
-	static boolean existProcess(
-			final WmiWbemServices wbemServices,
-			final int pid,
-			final long timeout
-	) throws WmiComException, TimeoutException {
-
+	static boolean existProcess(final WmiWbemServices wbemServices, final int pid, final long timeout)
+		throws WmiComException, TimeoutException {
 		try {
-
-			return !wbemServices.executeWql(
-					String.format("SELECT Handle FROM Win32_Process WHERE Handle = '%d'", pid),
-					timeout
-			).isEmpty();
-
+			return !wbemServices
+				.executeWql(String.format("SELECT Handle FROM Win32_Process WHERE Handle = '%d'", pid), timeout)
+				.isEmpty();
 		} catch (final WqlQuerySyntaxException e) {
 			throw new WmiComException(e);
 		}
@@ -164,31 +165,23 @@ public class RemoteProcess {
 	 * @throws WmiComException For any problem encountered with JNA.
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
-	private static void killProcessWithChildren(
-			final WmiWbemServices wmiWbemServices,
-			final int pid,
-			final long timeout
-	) throws WmiComException, TimeoutException {
-
+	private static void killProcessWithChildren(final WmiWbemServices wmiWbemServices, final int pid, final long timeout)
+		throws WmiComException, TimeoutException {
 		// First, get the children
 		try {
-
 			final long start = Utils.getCurrentTimeMillis();
 
 			final List<Integer> pidToKillList = new ArrayList<>();
 			pidToKillList.add(pid);
 			pidToKillList.addAll(
-					wmiWbemServices.executeWql(
-									String.format("SELECT Handle FROM Win32_Process WHERE ParentProcessId = '%d'", pid),
-									timeout
-							).stream()
-							.map(row -> (String) row.get("Handle"))
-							.filter(Objects::nonNull)
-							.map(Integer::parseInt)
-							.collect(Collectors.toList())
+				wmiWbemServices
+					.executeWql(String.format("SELECT Handle FROM Win32_Process WHERE ParentProcessId = '%d'", pid), timeout)
+					.stream()
+					.map(row -> (String) row.get("Handle"))
+					.filter(Objects::nonNull)
+					.map(Integer::parseInt)
+					.collect(Collectors.toList())
 			);
-
-
 
 			// Kill
 			for (final int pidToKill : pidToKillList) {
@@ -197,13 +190,13 @@ public class RemoteProcess {
 				}
 				try {
 					killProcess(wmiWbemServices, pidToKill);
-				} catch (final ProcessNotFoundException e) { /* Do nothing, just ignore */ }
+				} catch (final ProcessNotFoundException e) {
+					/* Do nothing, just ignore */
+				}
 			}
-
 		} catch (final WqlQuerySyntaxException e) {
 			throw new WmiComException(e); // Impossible
 		}
-
 	}
 
 	/**
@@ -213,43 +206,36 @@ public class RemoteProcess {
 	 * @param pid The process Id.
 	 * @throws WmiComException For any problem encountered with JNA.
 	 */
-	private static void killProcess(
-			final WmiWbemServices wmiWbemServices,
-			final int pid
-	) throws WmiComException, ProcessNotFoundException {
-
+	private static void killProcess(final WmiWbemServices wmiWbemServices, final int pid)
+		throws WmiComException, ProcessNotFoundException {
 		// Call the Terminate method of the Win32_Process class
 		// Reason is set to 1, just so that process exit code is non-zero, to indicate a failure
 		final Map<String, Object> inputs = Collections.singletonMap("Reason", 1);
 		final Map<String, Object> terminateResult;
 		try {
-			terminateResult = wmiWbemServices.executeMethod(
+			terminateResult =
+				wmiWbemServices.executeMethod(
 					String.format("Win32_Process.Handle='%d'", pid),
 					WIN32_PROCESS,
 					TERMINATE,
 					inputs
-			);
+				);
 		} catch (final WmiComException e) {
-
 			// Special case if we got an exception because the specified process could not be found
 			if (e.getMessage().contains("WBEM_E_NOT_FOUND")) {
 				throw new ProcessNotFoundException(pid);
 			}
 			throw e;
-
 		}
 
 		// Check ReturnValue
 		final Integer returnCode = (Integer) terminateResult.get("ReturnValue");
 		if (returnCode == null || returnCode.intValue() != 0) {
-			throw new WmiComException("Could not terminate the process (%d): %s",
-					pid, getReturnErrorMessage(returnCode));
+			throw new WmiComException("Could not terminate the process (%d): %s", pid, getReturnErrorMessage(returnCode));
 		}
 	}
 
 	private static String getReturnErrorMessage(final int returnCode) {
-		return METHOD_RETURNVALUE_MAP.getOrDefault(
-				returnCode,
-				String.format("Unknown return code (%d)", returnCode));
+		return METHOD_RETURNVALUE_MAP.getOrDefault(returnCode, String.format("Unknown return code (%d)", returnCode));
 	}
 }

@@ -19,7 +19,7 @@ package org.metricshub.wmi.remotecommand;
  * limitations under the License.
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
-
+import com.sun.jna.platform.win32.COM.COMException;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -27,15 +27,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-
 import org.metricshub.wmi.TimeoutHelper;
 import org.metricshub.wmi.Utils;
 import org.metricshub.wmi.exceptions.WindowsRemoteException;
-import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
-import org.metricshub.wmi.windows.remote.WindowsRemoteProcessUtils;
 import org.metricshub.wmi.exceptions.WmiComException;
+import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
 import org.metricshub.wmi.shares.WinTempShare;
-import com.sun.jna.platform.win32.COM.COMException;
+import org.metricshub.wmi.windows.remote.WindowsRemoteProcessUtils;
 
 public class WinRemoteCommandExecutor {
 
@@ -48,10 +46,11 @@ public class WinRemoteCommandExecutor {
 	private final int statusCode;
 
 	private WinRemoteCommandExecutor(
-			final String stdout,
-			final String stderr,
-			final float executionTime,
-			final int statusCode) {
+		final String stdout,
+		final String stderr,
+		final float executionTime,
+		final int statusCode
+	) {
 		this.stdout = stdout;
 		this.stderr = stderr;
 		this.executionTime = executionTime;
@@ -123,37 +122,38 @@ public class WinRemoteCommandExecutor {
 	 * @throws WindowsRemoteException For any problem encountered on remote
 	 */
 	public static WinRemoteCommandExecutor execute(
-			final String command,
-			final String hostname,
-			final String username,
-			final char[] password,
-			final String workingDirectory,
-			final long timeout,
-			final List<String> localFileToCopyList,
-			final boolean mergeStdoutStderr
+		final String command,
+		final String hostname,
+		final String username,
+		final char[] password,
+		final String workingDirectory,
+		final long timeout,
+		final List<String> localFileToCopyList,
+		final boolean mergeStdoutStderr
 	) throws IOException, TimeoutException, WqlQuerySyntaxException, WindowsRemoteException {
-
 		Utils.checkNonNull(command, "command");
 		Utils.checkNonNull(hostname, "hostname");
 		Utils.checkArgumentNotZeroOrNegative(timeout, "timeout");
 
 		final long start = Utils.getCurrentTimeMillis();
 
-		try (WinTempShare tempShare = WinTempShare.getInstance(
+		try (
+			WinTempShare tempShare = WinTempShare.getInstance(
 				hostname,
 				username,
 				password,
-				TimeoutHelper.getRemainingTime(timeout, start, "No time left to access the temporary share"))
+				TimeoutHelper.getRemainingTime(timeout, start, "No time left to access the temporary share")
+			)
 		) {
-
 			tempShare.checkConnectedFirst();
 
 			// Copy the list specified list of files, and update the command accordingly
 			final String localFilesUpdatedCommand = WindowsRemoteProcessUtils.copyLocalFilesToShare(
-					command,
-					localFileToCopyList,
-					tempShare.getUncSharePath(),
-					tempShare.getRemotePath());
+				command,
+				localFileToCopyList,
+				tempShare.getUncSharePath(),
+				tempShare.getRemotePath()
+			);
 
 			// Update the command to capture its stdout and stderr
 			final String outputFileBaseName = WindowsRemoteProcessUtils.buildNewOutputFileName();
@@ -163,20 +163,22 @@ public class WinRemoteCommandExecutor {
 			final Path errFilePathRemote = Paths.get(tempShare.getRemotePath(), outputFileBaseName + ERR_EXT);
 
 			// If we are to merge stdout and stderr, redirect stderr to stdout (with "2>&1")
-			final String redirectedCommand = String.format("CMD.EXE /C (%s) > \"%s\" 2>\"%s\"",
-					localFilesUpdatedCommand,
-					outputFilePathRemote.toString(),
-					mergeStdoutStderr ? "&1" : errFilePathRemote.toString());
+			final String redirectedCommand = String.format(
+				"CMD.EXE /C (%s) > \"%s\" 2>\"%s\"",
+				localFilesUpdatedCommand,
+				outputFilePathRemote.toString(),
+				mergeStdoutStderr ? "&1" : errFilePathRemote.toString()
+			);
 
 			// Create a process on the remote machine and execute the cmd
 			final long startCommand = Utils.getCurrentTimeMillis();
 			final int statusCode = RemoteProcess.executeCommand(
-					redirectedCommand,
-					hostname,
-					username,
-					password,
-					workingDirectory,
-					TimeoutHelper.getRemainingTime(timeout, start, "No time left to execute command")
+				redirectedCommand,
+				hostname,
+				username,
+				password,
+				workingDirectory,
+				TimeoutHelper.getRemainingTime(timeout, start, "No time left to execute command")
 			);
 			final float executionTime = (Utils.getCurrentTimeMillis() - startCommand) / 1000.0f;
 
@@ -186,8 +188,9 @@ public class WinRemoteCommandExecutor {
 			}
 
 			final Charset charset = WindowsRemoteProcessUtils.getWindowsEncodingCharset(
-					tempShare.getWindowsRemoteExecutor(),
-					TimeoutHelper.getRemainingTime(timeout, start, "No time left to retrieve the code set"));
+				tempShare.getWindowsRemoteExecutor(),
+				TimeoutHelper.getRemainingTime(timeout, start, "No time left to retrieve the code set")
+			);
 
 			// Reading the stdout
 			final String outContent = Utils.readText(outputFilePath, charset);
@@ -202,16 +205,10 @@ public class WinRemoteCommandExecutor {
 				Files.deleteIfExists(errFilePath);
 			}
 
-			return new WinRemoteCommandExecutor(
-					outContent,
-					errContent,
-					executionTime,
-					statusCode);
-
+			return new WinRemoteCommandExecutor(outContent, errContent, executionTime, statusCode);
 		} catch (final COMException e) {
 			// And forward this error as a regular exception
 			throw new WmiComException(e, e.getClass().getSimpleName() + ": " + e.getMessage());
 		}
 	}
-
 }

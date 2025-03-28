@@ -1,30 +1,28 @@
 package org.metricshub.wmi.wbem;
 
-import org.metricshub.wmi.Utils;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+
 import com.sun.jna.platform.win32.COM.Wbemcli;
 import com.sun.jna.platform.win32.COM.Wbemcli.IWbemClassObject;
 import com.sun.jna.platform.win32.Variant.VARIANT;
 import com.sun.jna.platform.win32.Variant.VARIANT.ByReference;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
-import org.junit.jupiter.api.condition.OS;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
-
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.metricshub.wmi.Utils;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 @EnabledOnOs(OS.WINDOWS)
 class WmiCimTypeHandlerTest {
 
 	@Test
 	void testConvertCimDateTime() {
-
 		assertNull(WmiCimTypeHandler.convertCimDateTime(new ByReference()));
 
 		ByReference invalid = new ByReference(new VARIANT("invalid"));
@@ -45,7 +43,6 @@ class WmiCimTypeHandlerTest {
 
 	@Test
 	void testConvertCimReference() {
-
 		assertNull(WmiCimTypeHandler.convertCimReference(new ByReference()));
 
 		{
@@ -61,37 +58,49 @@ class WmiCimTypeHandlerTest {
 
 	@Test
 	void testConvert() {
-
 		assertEquals(
-				Collections.singletonMap("property", null),
-				WmiCimTypeHandler.convert(new ByReference(), 1, new AbstractMap.SimpleEntry<String, Set<String>>("property", Collections.emptySet())));
+			Collections.singletonMap("property", null),
+			WmiCimTypeHandler.convert(
+				new ByReference(),
+				1,
+				new AbstractMap.SimpleEntry<String, Set<String>>("property", Collections.emptySet())
+			)
+		);
 
 		ByReference r = new ByReference(new VARIANT(5));
 		assertEquals(
-				Collections.singletonMap("property", 5),
-				WmiCimTypeHandler.convert(r, Wbemcli.CIM_SINT32, new AbstractMap.SimpleEntry<String, Set<String>>("property", Collections.emptySet())));
+			Collections.singletonMap("property", 5),
+			WmiCimTypeHandler.convert(
+				r,
+				Wbemcli.CIM_SINT32,
+				new AbstractMap.SimpleEntry<String, Set<String>>("property", Collections.emptySet())
+			)
+		);
 	}
 
 	@Test
 	void testConvertCimObject() {
-
 		final ByReference value = Mockito.mock(ByReference.class);
 
 		final AbstractMap.SimpleEntry<String, Set<String>> property = new AbstractMap.SimpleEntry<String, Set<String>>(
-				"DriveInfo",
-				Arrays.asList("name", "numberpaths", "serialnumber").stream().collect(Collectors.toSet()));
+			"DriveInfo",
+			Arrays.asList("name", "numberpaths", "serialnumber").stream().collect(Collectors.toSet())
+		);
 
-		final AbstractMap.SimpleEntry<String, Set<String>> nameSubProperty = new AbstractMap.SimpleEntry<String, Set<String>>(
-				"Name",
-				Collections.emptySet());
+		final AbstractMap.SimpleEntry<String, Set<String>> nameSubProperty = new AbstractMap.SimpleEntry<
+			String,
+			Set<String>
+		>("Name", Collections.emptySet());
 
-		final AbstractMap.SimpleEntry<String, Set<String>> numberPathsSubProperty = new AbstractMap.SimpleEntry<String, Set<String>>(
-				"NumberPaths",
-				Collections.emptySet());
+		final AbstractMap.SimpleEntry<String, Set<String>> numberPathsSubProperty = new AbstractMap.SimpleEntry<
+			String,
+			Set<String>
+		>("NumberPaths", Collections.emptySet());
 
-		final AbstractMap.SimpleEntry<String, Set<String>> serialNumberSubProperty = new AbstractMap.SimpleEntry<String, Set<String>>(
-				"SerialNumber",
-				Collections.emptySet());
+		final AbstractMap.SimpleEntry<String, Set<String>> serialNumberSubProperty = new AbstractMap.SimpleEntry<
+			String,
+			Set<String>
+		>("SerialNumber", Collections.emptySet());
 
 		final Map<String, String> subPropertiesNames = new HashMap<>();
 		subPropertiesNames.put("name", "Name");
@@ -102,9 +111,12 @@ class WmiCimTypeHandlerTest {
 
 		// Case getUnknownWbemClassObject empty
 		try (final MockedStatic<WmiCimTypeHandler> mockedWmiCimTypeHandler = Mockito.mockStatic(WmiCimTypeHandler.class)) {
-
-			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.getUnknownWbemClassObject(any())).thenReturn(Optional.empty());
-			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.buildCimObjectSubPropertyName(eq(property), anyString())).thenCallRealMethod();
+			mockedWmiCimTypeHandler
+				.when(() -> WmiCimTypeHandler.getUnknownWbemClassObject(any()))
+				.thenReturn(Optional.empty());
+			mockedWmiCimTypeHandler
+				.when(() -> WmiCimTypeHandler.buildCimObjectSubPropertyName(eq(property), anyString()))
+				.thenCallRealMethod();
 			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.convertCimObject(value, property)).thenCallRealMethod();
 
 			final Map<String, Object> expected = new HashMap<>();
@@ -116,21 +128,29 @@ class WmiCimTypeHandlerTest {
 		}
 
 		try (final MockedStatic<WmiCimTypeHandler> mockedWmiCimTypeHandler = Mockito.mockStatic(WmiCimTypeHandler.class)) {
+			mockedWmiCimTypeHandler
+				.when(() -> WmiCimTypeHandler.getUnknownWbemClassObject(any()))
+				.thenReturn(Optional.of(wbemClassObject));
 
-			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.getUnknownWbemClassObject(any())).thenReturn(Optional.of(wbemClassObject));
+			mockedWmiCimTypeHandler
+				.when(() -> WmiCimTypeHandler.getSubPropertiesNamesFromClass(wbemClassObject))
+				.thenReturn(subPropertiesNames);
 
-			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.getSubPropertiesNamesFromClass(wbemClassObject)).thenReturn(subPropertiesNames);
+			mockedWmiCimTypeHandler
+				.when(() -> WmiCimTypeHandler.getPropertyValue(wbemClassObject, numberPathsSubProperty))
+				.thenReturn(Collections.singletonMap("NumberPaths", 5));
 
-			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.getPropertyValue(wbemClassObject, numberPathsSubProperty))
-			.thenReturn(Collections.singletonMap("NumberPaths", 5));
+			mockedWmiCimTypeHandler
+				.when(() -> WmiCimTypeHandler.getPropertyValue(wbemClassObject, nameSubProperty))
+				.thenReturn(Collections.singletonMap("Name", "MPIO Disk0"));
 
-			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.getPropertyValue(wbemClassObject, nameSubProperty))
-			.thenReturn(Collections.singletonMap("Name", "MPIO Disk0"));
+			mockedWmiCimTypeHandler
+				.when(() -> WmiCimTypeHandler.getPropertyValue(wbemClassObject, serialNumberSubProperty))
+				.thenReturn(Collections.singletonMap("SerialNumber", "624A937068B04CE438B46F8A00011BBB"));
 
-			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.getPropertyValue(wbemClassObject, serialNumberSubProperty))
-			.thenReturn(Collections.singletonMap("SerialNumber", "624A937068B04CE438B46F8A00011BBB"));
-
-			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.buildCimObjectSubPropertyName(eq(property), anyString())).thenCallRealMethod();
+			mockedWmiCimTypeHandler
+				.when(() -> WmiCimTypeHandler.buildCimObjectSubPropertyName(eq(property), anyString()))
+				.thenCallRealMethod();
 			mockedWmiCimTypeHandler.when(() -> WmiCimTypeHandler.convertCimObject(value, property)).thenCallRealMethod();
 
 			final Map<String, Object> expected = new HashMap<>();

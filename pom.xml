@@ -2,24 +2,23 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-		<groupId>org.sentrysoftware</groupId>
+		<groupId>org.metricshub</groupId>
 		<artifactId>oss-parent</artifactId>
 		<version>2</version>
 	</parent>
 
-	<groupId>org.sentrysoftware</groupId>
-	<artifactId>wmi</artifactId>
+	<artifactId>wmi-java</artifactId>
 	<version>1.0.03-SNAPSHOT</version>
 
 	<name>WMI Java Client</name>
 	<description>WMI Client Library for Java</description>
 
 	<organization>
-		<name>Sentry Software</name>
-		<url>https://sentrysoftware.com</url>
-	</organization>
+		<name>Metricshub</name>
+		<url>https://metricshub.com/</url>
+	</organization><build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><source>8</source><target>8</target></configuration></plugin></plugins></build>
 
-	<url>https://sentrysoftware.org/wmi</url>
+	<url>https://metricshub.org/wmi-java</url>
 	<inceptionYear>2023</inceptionYear>
 
 	<licenses>
@@ -32,33 +31,26 @@
 
 	<issueManagement>
 		<system>GitHub</system>
-		<url>https://github.com/sentrysoftware/wmi/issues/</url>
+		<url>https://github.com/metricshub/wmi-java/issues/</url>
 	</issueManagement>
 
 	<scm>
-		<connection>scm:git:https://github.com/sentrysoftware/wmi.git</connection>
-		<url>https://github.com/sentrysoftware/wmi</url>
+		<connection>scm:git:https://github.com/metricshub/wmi-java.git</connection>
+		<url>https://github.com/metricshub/wmi-java</url>
 		<tag>HEAD</tag>
 	</scm>
 
 	<developers>
 		<developer>
 			<name>Bertrand Martin (@bertysentry)</name>
-			<email>bertrand@sentrysoftware.com</email>
+			<email>bertrand@metricshub.com</email>
 			<roles>
 				<role>maintainer</role>
 			</roles>
 		</developer>
 		<developer>
 			<name>Nassim BOUTEKEDJIRET (@NassimBtk)</name>
-			<email>nassim@sentrysoftware.com</email>
-			<roles>
-				<role>maintainer</role>
-			</roles>
-		</developer>
-		<developer>
-			<name>Kawtar Bakour (@KawtarBK9)</name>
-			<email>kawtar@sentrysoftware.com</email>
+			<email>nassim@metricshub.com</email>
 			<roles>
 				<role>maintainer</role>
 			</roles>
@@ -107,7 +99,7 @@
 		<dependency>
 			<groupId>net.java.dev.jna</groupId>
 			<artifactId>jna</artifactId>
-			<version>5.14.0</version>
+			<version>5.17.0</version>
 		</dependency>
 		<dependency>
 			<groupId>net.java.dev.jna</groupId>

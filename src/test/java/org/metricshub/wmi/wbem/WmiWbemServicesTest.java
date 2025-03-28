@@ -1,29 +1,28 @@
 package org.metricshub.wmi.wbem;
 
-import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
-import org.metricshub.wmi.exceptions.WmiComException;
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.OleAuto;
 import com.sun.jna.platform.win32.Variant;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.condition.EnabledOnOs;
-import org.junit.jupiter.api.condition.OS;
-import org.mockito.ArgumentMatchers;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
-
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.metricshub.wmi.exceptions.WmiComException;
+import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
+import org.mockito.ArgumentMatchers;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 @EnabledOnOs(OS.WINDOWS)
 @TestMethodOrder(OrderAnnotation.class)
@@ -34,14 +33,20 @@ class WmiWbemServicesTest {
 	void testNonConnected() throws Exception {
 		final WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null);
 		wmiWbemServices.close();
-		assertThrows(IllegalStateException.class, () -> wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000));
+		assertThrows(
+			IllegalStateException.class,
+			() -> wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000)
+		);
 	}
 
 	@Test
 	@Order(3)
 	void testSimpleWql() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Name FROM Win32_OperatingSystem",
+				30000
+			);
 			assertEquals(1, result.size());
 		}
 	}
@@ -50,7 +55,10 @@ class WmiWbemServicesTest {
 	@Order(4)
 	void testDoubleWql() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Name FROM Win32_OperatingSystem",
+				30000
+			);
 			assertEquals(1, result.size());
 			final List<Map<String, Object>> result2 = wmiWbemServices.executeWql("SELECT Name FROM Win32_Processor", 30000);
 			assertTrue(result2.size() > 0);
@@ -61,11 +69,17 @@ class WmiWbemServicesTest {
 	@Order(5)
 	void testDoubleWbemService() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Name FROM Win32_OperatingSystem",
+				30000
+			);
 			assertEquals(1, result.size());
 		}
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Name FROM Win32_OperatingSystem",
+				30000
+			);
 			assertEquals(1, result.size());
 		}
 	}
@@ -75,14 +89,20 @@ class WmiWbemServicesTest {
 	void testReconnect() throws Exception {
 		WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null);
 		try {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Name FROM Win32_OperatingSystem",
+				30000
+			);
 			assertEquals(1, result.size());
 		} finally {
 			wmiWbemServices.close();
 		}
 		try {
 			wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null);
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Name FROM Win32_OperatingSystem",
+				30000
+			);
 			assertEquals(1, result.size());
 		} finally {
 			wmiWbemServices.close();
@@ -93,7 +113,10 @@ class WmiWbemServicesTest {
 	@Order(8)
 	void testInvalidWqlReportedByWmi() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			assertThrows(WqlQuerySyntaxException.class, () -> wmiWbemServices.executeWql("SELECT 1 FROM 2 WHERE 3 FROM 1", 30000));
+			assertThrows(
+				WqlQuerySyntaxException.class,
+				() -> wmiWbemServices.executeWql("SELECT 1 FROM 2 WHERE 3 FROM 1", 30000)
+			);
 		}
 	}
 
@@ -117,7 +140,10 @@ class WmiWbemServicesTest {
 	@Order(11)
 	void testPasswordOnLocal() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			assertThrows(IllegalArgumentException.class, () -> WmiWbemServices.getInstance("root/cimv2", "invalid", "invalid".toCharArray()));
+			assertThrows(
+				IllegalArgumentException.class,
+				() -> WmiWbemServices.getInstance("root/cimv2", "invalid", "invalid".toCharArray())
+			);
 		}
 	}
 
@@ -128,7 +154,10 @@ class WmiWbemServicesTest {
 			assertThrows(WqlQuerySyntaxException.class, () -> wmiWbemServices.executeWql("SELECT", 30000));
 		}
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Name FROM Win32_OperatingSystem",
+				30000
+			);
 			assertEquals(1, result.size());
 		}
 	}
@@ -137,23 +166,32 @@ class WmiWbemServicesTest {
 	@Order(13)
 	void testReferenceValue() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Antecedent FROM Win32_LoggedOnUser", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Antecedent FROM Win32_LoggedOnUser",
+				30000
+			);
 			final String ref = (String) result.get(0).get("Antecedent");
 			assertFalse(ref.contains(":"));
 		}
 
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT __PATH FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT __PATH FROM Win32_OperatingSystem",
+				30000
+			);
 			final String path = (String) result.get(0).get("__PATH");
 			assertFalse(path.contains(":"));
 		}
-}
+	}
 
 	@Test
 	@Order(14)
 	void testDateTimeValue() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT LocalDateTime FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT LocalDateTime FROM Win32_OperatingSystem",
+				30000
+			);
 			final OffsetDateTime time = (OffsetDateTime) result.get(0).get("LocalDateTime");
 
 			final long timeDiff = Math.abs(time.toEpochSecond() * 1000 - System.currentTimeMillis());
@@ -165,7 +203,10 @@ class WmiWbemServicesTest {
 	@Order(15)
 	void testArrayValue() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT MUILanguages FROM Win32_OperatingSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT MUILanguages FROM Win32_OperatingSystem",
+				30000
+			);
 			assertTrue(result.get(0).get("MUILanguages").getClass().isArray());
 		}
 	}
@@ -174,7 +215,10 @@ class WmiWbemServicesTest {
 	@Order(16)
 	void testCimObjectDefaultValue() throws Exception {
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/WMI", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT PerfData FROM MSDiskDriver_Performance", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT PerfData FROM MSDiskDriver_Performance",
+				30000
+			);
 			if (result.size() > 0) {
 				assertEquals("CIM_OBJECT", result.get(0).get("PerfData"));
 			}
@@ -197,20 +241,29 @@ class WmiWbemServicesTest {
 	void testAssociators() throws Exception {
 		// Simple case
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("ASSOCIATORS OF {Win32_OperatingSystem=@}", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"ASSOCIATORS OF {Win32_OperatingSystem=@}",
+				30000
+			);
 			assertTrue(result.size() > 0, "There must be at least 1 result in ASSOCIATORS of {Win32_OperatingSystem=@}");
 		}
 
 		// Something more complicated
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-			String computerName = (String)wmiWbemServices.executeWql("SELECT Name FROM Win32_ComputerSystem", 30000).get(0).get("Name");
+			String computerName = (String) wmiWbemServices
+				.executeWql("SELECT Name FROM Win32_ComputerSystem", 30000)
+				.get(0)
+				.get("Name");
 			assertNotNull(computerName);
 			assertFalse(computerName.isEmpty());
 
-			final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM ASSOCIATORS OF {Win32_OperatingSystem=@} WHERE ResultClass = Win32_ComputerSystem", 30000);
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT Name FROM ASSOCIATORS OF {Win32_OperatingSystem=@} WHERE ResultClass = Win32_ComputerSystem",
+				30000
+			);
 			assertEquals(computerName, result.get(0).get("Name"));
 		}
-}
+	}
 
 	@Test
 	@Order(19)
@@ -225,11 +278,16 @@ class WmiWbemServicesTest {
 		// check ok
 		try (final MockedStatic<WmiComHelper> mockedWmiComHelper = Mockito.mockStatic(WmiComHelper.class)) {
 			final Object hResult = new HRESULT(0);
-			mockedWmiComHelper.when(() -> WmiComHelper.comInvokerInvokeNativeObject(
-					ArgumentMatchers.any(Pointer.class),
-					ArgumentMatchers.eq(6),
-					ArgumentMatchers.any(Object[].class),
-					ArgumentMatchers.any())).thenReturn(hResult);
+			mockedWmiComHelper
+				.when(() ->
+					WmiComHelper.comInvokerInvokeNativeObject(
+						ArgumentMatchers.any(Pointer.class),
+						ArgumentMatchers.eq(6),
+						ArgumentMatchers.any(Object[].class),
+						ArgumentMatchers.any()
+					)
+				)
+				.thenReturn(hResult);
 
 			wmiWbemServices.getObject(objectPah);
 		}
@@ -256,11 +314,16 @@ class WmiWbemServicesTest {
 		// check ok
 		try (final MockedStatic<WmiComHelper> mockedWmiComHelper = Mockito.mockStatic(WmiComHelper.class)) {
 			final Object hResult = new HRESULT(0);
-			mockedWmiComHelper.when(() -> WmiComHelper.comInvokerInvokeNativeObject(
-					ArgumentMatchers.any(Pointer.class),
-					ArgumentMatchers.eq(24),
-					ArgumentMatchers.any(Object[].class),
-					ArgumentMatchers.any())).thenReturn(hResult);
+			mockedWmiComHelper
+				.when(() ->
+					WmiComHelper.comInvokerInvokeNativeObject(
+						ArgumentMatchers.any(Pointer.class),
+						ArgumentMatchers.eq(24),
+						ArgumentMatchers.any(Object[].class),
+						ArgumentMatchers.any()
+					)
+				)
+				.thenReturn(hResult);
 
 			wmiWbemServices.executeMethod(objectPah, methodName, pInParams);
 		}
@@ -286,11 +349,16 @@ class WmiWbemServicesTest {
 		// check ok
 		try (final MockedStatic<WmiComHelper> mockedWmiComHelper = Mockito.mockStatic(WmiComHelper.class)) {
 			final Object hResult = new HRESULT(0);
-			mockedWmiComHelper.when(() -> WmiComHelper.comInvokerInvokeNativeObject(
-					ArgumentMatchers.any(Pointer.class),
-					ArgumentMatchers.eq(5),
-					ArgumentMatchers.any(Object[].class),
-					ArgumentMatchers.any())).thenReturn(hResult);
+			mockedWmiComHelper
+				.when(() ->
+					WmiComHelper.comInvokerInvokeNativeObject(
+						ArgumentMatchers.any(Pointer.class),
+						ArgumentMatchers.eq(5),
+						ArgumentMatchers.any(Object[].class),
+						ArgumentMatchers.any()
+					)
+				)
+				.thenReturn(hResult);
 
 			wmiWbemServices.objectPut(pWbemClassObject, propertyName, pVal);
 		}
@@ -314,11 +382,16 @@ class WmiWbemServicesTest {
 		// check ok
 		try (final MockedStatic<WmiComHelper> mockedWmiComHelper = Mockito.mockStatic(WmiComHelper.class)) {
 			final Object hResult = new HRESULT(0);
-			mockedWmiComHelper.when(() -> WmiComHelper.comInvokerInvokeNativeObject(
-					ArgumentMatchers.any(Pointer.class),
-					ArgumentMatchers.eq(15),
-					ArgumentMatchers.any(Object[].class),
-					ArgumentMatchers.any())).thenReturn(hResult);
+			mockedWmiComHelper
+				.when(() ->
+					WmiComHelper.comInvokerInvokeNativeObject(
+						ArgumentMatchers.any(Pointer.class),
+						ArgumentMatchers.eq(15),
+						ArgumentMatchers.any(Object[].class),
+						ArgumentMatchers.any()
+					)
+				)
+				.thenReturn(hResult);
 
 			wmiWbemServices.spawnInstance(pWbemClassObject);
 		}
@@ -344,11 +417,16 @@ class WmiWbemServicesTest {
 		// check ok
 		try (final MockedStatic<WmiComHelper> mockedWmiComHelper = Mockito.mockStatic(WmiComHelper.class)) {
 			final Object hResult = new HRESULT(0);
-			mockedWmiComHelper.when(() -> WmiComHelper.comInvokerInvokeNativeObject(
-					ArgumentMatchers.any(Pointer.class),
-					ArgumentMatchers.eq(19),
-					ArgumentMatchers.any(Object[].class),
-					ArgumentMatchers.any())).thenReturn(hResult);
+			mockedWmiComHelper
+				.when(() ->
+					WmiComHelper.comInvokerInvokeNativeObject(
+						ArgumentMatchers.any(Pointer.class),
+						ArgumentMatchers.eq(19),
+						ArgumentMatchers.any(Object[].class),
+						ArgumentMatchers.any()
+					)
+				)
+				.thenReturn(hResult);
 
 			wmiWbemServices.getMethod(pWbemClassObject, methodName);
 		}
@@ -382,15 +460,23 @@ class WmiWbemServicesTest {
 	void testGetWmiComErrorMessage() {
 		assertEquals("code: 0xffffffff.", WmiWbemServices.getWmiComErrorMessage(new HRESULT(-1)));
 
-		assertEquals("WBEM_E_FAILED: Call failed. (0x80041001)", WmiWbemServices.getWmiComErrorMessage(new HRESULT(-2147217407)));
-		assertEquals("WBEM_E_NOT_FOUND: Object cannot be found. (0x80041002)", WmiWbemServices.getWmiComErrorMessage(new HRESULT(-2147217406)));
-		assertEquals("WBEM_E_ACCESS_DENIED: Current user does not have permission to perform the action. (0x80041003)", WmiWbemServices.getWmiComErrorMessage(new HRESULT(-2147217405)));
+		assertEquals(
+			"WBEM_E_FAILED: Call failed. (0x80041001)",
+			WmiWbemServices.getWmiComErrorMessage(new HRESULT(-2147217407))
+		);
+		assertEquals(
+			"WBEM_E_NOT_FOUND: Object cannot be found. (0x80041002)",
+			WmiWbemServices.getWmiComErrorMessage(new HRESULT(-2147217406))
+		);
+		assertEquals(
+			"WBEM_E_ACCESS_DENIED: Current user does not have permission to perform the action. (0x80041003)",
+			WmiWbemServices.getWmiComErrorMessage(new HRESULT(-2147217405))
+		);
 	}
 
 	@Test
 	@Order(31)
 	void testMultithreadSameService() throws Exception {
-
 		final int threadCount = 100;
 		final int threadFrequency = 500; // Number of threads per second
 
@@ -398,13 +484,15 @@ class WmiWbemServicesTest {
 		final AtomicInteger resultCount = new AtomicInteger(0);
 
 		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-
 			final Runnable okRunnable = new Runnable() {
 				@Override
 				public void run() {
 					try {
-						Thread.sleep((long)(Math.random() * 10));
-						final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+						Thread.sleep((long) (Math.random() * 10));
+						final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+							"SELECT Name FROM Win32_OperatingSystem",
+							30000
+						);
 						if (result.size() != 1) {
 							throw new RuntimeException("Query did not return exactly 1 record");
 						}
@@ -424,10 +512,12 @@ class WmiWbemServicesTest {
 			};
 
 			final List<Thread> threadList = new ArrayList<Thread>();
-			for (int i = 0 ; i < threadCount ; i++) {
+			for (int i = 0; i < threadCount; i++) {
 				final Thread okThread = new Thread(okRunnable);
 				okThread.setUncaughtExceptionHandler(exHandler);
-				try { Thread.sleep((long)(0.5 + Math.random() * 1000 / threadFrequency)); } catch (final InterruptedException e) { }
+				try {
+					Thread.sleep((long) (0.5 + (Math.random() * 1000) / threadFrequency));
+				} catch (final InterruptedException e) {}
 				okThread.start();
 				threadList.add(okThread);
 			}
@@ -443,7 +533,6 @@ class WmiWbemServicesTest {
 	@Test
 	@Order(32)
 	void testMultithreadSuccess() throws Exception {
-
 		final int threadCount = 1000;
 		final int threadFrequency = 500; // Number of threads created, per second
 
@@ -454,8 +543,11 @@ class WmiWbemServicesTest {
 			@Override
 			public void run() {
 				try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-					Thread.sleep((long)(Math.random() * 10));
-					final List<Map<String, Object>> result = wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSystem", 30000);
+					Thread.sleep((long) (Math.random() * 10));
+					final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+						"SELECT Name FROM Win32_OperatingSystem",
+						30000
+					);
 					if (result.size() != 1) {
 						throw new RuntimeException("Query did not return exactly 1 record");
 					}
@@ -470,7 +562,7 @@ class WmiWbemServicesTest {
 			@Override
 			public void run() {
 				try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
-					Thread.sleep((long)(Math.random() * 10));
+					Thread.sleep((long) (Math.random() * 10));
 					wmiWbemServices.executeWql("SELECT Name FROM Win32_OperatingSyste", 30000);
 				} catch (final Exception e) {
 					throw new RuntimeException(e);
@@ -489,16 +581,20 @@ class WmiWbemServicesTest {
 		};
 
 		final List<Thread> threadList = new ArrayList<Thread>();
-		for (int i = 0 ; i < threadCount / 2 ; i++) {
+		for (int i = 0; i < threadCount / 2; i++) {
 			final Thread okThread = new Thread(okRunnable);
 			okThread.setUncaughtExceptionHandler(exHandler);
-			try { Thread.sleep((long)(0.5 + Math.random() * 2000 / threadFrequency)); } catch (final InterruptedException e) { }
+			try {
+				Thread.sleep((long) (0.5 + (Math.random() * 2000) / threadFrequency));
+			} catch (final InterruptedException e) {}
 			okThread.start();
 			threadList.add(okThread);
 
 			final Thread failThread = new Thread(failRunnable);
 			failThread.setUncaughtExceptionHandler(exHandler);
-			try { Thread.sleep((long)(0.5 + Math.random() * 2000 / threadFrequency)); } catch (final InterruptedException e) { }
+			try {
+				Thread.sleep((long) (0.5 + (Math.random() * 2000) / threadFrequency));
+			} catch (final InterruptedException e) {}
 			failThread.start();
 			threadList.add(failThread);
 		}

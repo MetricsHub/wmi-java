@@ -17,10 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
 
 class UtilsTest {
 
@@ -37,8 +35,8 @@ class UtilsTest {
 	@Test
 	void testCheckNonBlank() {
 		assertThrows(IllegalArgumentException.class, () -> Utils.checkNonBlank(null, "name"));
-		assertThrows(IllegalArgumentException.class, () -> Utils.checkNonBlank("",  "name"));
-		assertThrows(IllegalArgumentException.class, () -> Utils.checkNonBlank("  ",  "name"));
+		assertThrows(IllegalArgumentException.class, () -> Utils.checkNonBlank("", "name"));
+		assertThrows(IllegalArgumentException.class, () -> Utils.checkNonBlank("  ", "name"));
 		Utils.checkNonBlank("value", null);
 	}
 
@@ -109,14 +107,20 @@ class UtilsTest {
 
 	@Test
 	void testReadText() throws Exception {
-
-		assertEquals(Utils.EMPTY, Utils.readText(tempDir, StandardCharsets.UTF_8), "\"Reading\" a directory must return empty");
-		assertEquals(Utils.EMPTY, Utils.readText(tempDir.resolve("non-existent"), StandardCharsets.UTF_8), "Non-existing file must return empty");
+		assertEquals(
+			Utils.EMPTY,
+			Utils.readText(tempDir, StandardCharsets.UTF_8),
+			"\"Reading\" a directory must return empty"
+		);
+		assertEquals(
+			Utils.EMPTY,
+			Utils.readText(tempDir.resolve("non-existent"), StandardCharsets.UTF_8),
+			"Non-existing file must return empty"
+		);
 
 		final Path tempFile = tempDir.resolve("testReadText");
 		Files.write(tempFile, "Line1\r\n2\r3\n4\n".getBytes(StandardCharsets.UTF_8));
 		assertTrue(Files.isRegularFile(tempFile) && Files.isReadable(tempFile));
 		assertEquals("Line1\n2\n3\n4\n", Utils.readText(tempFile, StandardCharsets.UTF_8));
 	}
-
 }

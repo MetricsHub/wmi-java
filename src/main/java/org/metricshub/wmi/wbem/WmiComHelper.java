@@ -20,13 +20,13 @@ package org.metricshub.wmi.wbem;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
-import org.metricshub.wmi.exceptions.WmiComException;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.COM.COMUtils;
 import com.sun.jna.platform.win32.Ole32;
 import com.sun.jna.platform.win32.WinError;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
+import org.metricshub.wmi.exceptions.WmiComException;
 
 /**
  * Class with various static methods to help with COM interaction.
@@ -55,7 +55,6 @@ public class WmiComHelper {
 	 * threading model
 	 */
 	public static void initializeComLibrary() throws WmiComException {
-
 		// Do nothing if COM Library already initialized
 		if (Boolean.TRUE.equals(comLibraryInitialized.get())) {
 			return;
@@ -66,45 +65,50 @@ public class WmiComHelper {
 		final HRESULT hCoInitResult = Ole32.INSTANCE.CoInitializeEx(null, Ole32.COINIT_MULTITHREADED);
 		final int coInitResult = hCoInitResult.intValue();
 		if (coInitResult == WinError.RPC_E_CHANGED_MODE) {
-			throw new IllegalStateException(
-					"CoInitializeEx() has already been called with a different threading model");
+			throw new IllegalStateException("CoInitializeEx() has already been called with a different threading model");
 		} else if (coInitResult != COMUtils.S_OK && coInitResult != COMUtils.S_FALSE) {
 			throw new WmiComException(
-					"Failed to initialize the COM Library (HRESULT=0x%s)", Integer.toHexString(coInitResult));
+				"Failed to initialize the COM Library (HRESULT=0x%s)",
+				Integer.toHexString(coInitResult)
+			);
 		}
 
 		// Initialize COM process security
 		// Step 2 from: <a href="https://docs.microsoft.com/en-us/windows/win32/wmisdk/example--getting-wmi-data-from-a-remote-computer">Example: Getting WMI Data from a Remote Computer</a>
+		// @formatter:off
+		// CHECKSTYLE:OFF
 		final HRESULT hResult = Ole32.INSTANCE.CoInitializeSecurity(
-				null,
-				-1,
-				null,
-				null,
-				Ole32.RPC_C_AUTHN_LEVEL_DEFAULT,
-				Ole32.RPC_C_IMP_LEVEL_IMPERSONATE,
-				null,
-				Ole32.EOAC_NONE,
-				null
+			null,
+			-1,
+			null,
+			null,
+			Ole32.RPC_C_AUTHN_LEVEL_DEFAULT,
+			Ole32.RPC_C_IMP_LEVEL_IMPERSONATE,
+			null,
+			Ole32.EOAC_NONE,
+			null
 		);
+		// CHECKSTYLE:ON
+		// @formatter:on
 
 		// If security was already initialized, we'll get RPC_E_TOO_LATE
 		// which can be safely ignored
 		if (COMUtils.FAILED(hResult) && hResult.intValue() != WinError.RPC_E_TOO_LATE) {
 			unInitializeCom();
 			throw new WmiComException(
-					"Failed to initialize security (HRESULT=0x%s)", Integer.toHexString(hResult.intValue()));
+				"Failed to initialize security (HRESULT=0x%s)",
+				Integer.toHexString(hResult.intValue())
+			);
 		}
 
 		// We're good!
 		comLibraryInitialized.set(true);
-
 	}
 
 	/**
 	 * UnInitialize the COM library.
 	 */
 	public static void unInitializeCom() {
-
 		// Do nothing if COM has not been initialized
 		if (Boolean.FALSE.equals(comLibraryInitialized.get())) {
 			return;
@@ -112,7 +116,6 @@ public class WmiComHelper {
 
 		Ole32.INSTANCE.CoUninitialize();
 		comLibraryInitialized.set(false);
-
 	}
 
 	/**
@@ -121,7 +124,6 @@ public class WmiComHelper {
 	public static boolean isComInitialized() {
 		return comLibraryInitialized.get();
 	}
-
 
 	/**
 	 * Same function than in com.sun.jna.platform.win32.COM.COMInvoker._invokeNativeInt
@@ -133,16 +135,15 @@ public class WmiComHelper {
 	 * @return whatever the specified function returns
 	 */
 	public static Object comInvokerInvokeNativeObject(
-			final Pointer contextPointer,
-			final int vtableId,
-			final Object[] args,
-			final Class<?> returnType
+		final Pointer contextPointer,
+		final int vtableId,
+		final Object[] args,
+		final Class<?> returnType
 	) {
-
 		final Pointer vptr = contextPointer.getPointer(0);
-		final com.sun.jna.Function func = com.sun.jna.Function.getFunction(vptr.getPointer(vtableId * Native.POINTER_SIZE * 1L));
+		final com.sun.jna.Function func = com.sun.jna.Function.getFunction(
+			vptr.getPointer(vtableId * Native.POINTER_SIZE * 1L)
+		);
 		return func.invoke(returnType, args);
-
 	}
-
 }

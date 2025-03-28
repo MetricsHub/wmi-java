@@ -20,25 +20,35 @@ package org.metricshub.wmi.shares;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
-import org.metricshub.wmi.Utils;
-import org.metricshub.wmi.WmiHelper;
-import org.metricshub.wmi.exceptions.WindowsRemoteException;
-import org.metricshub.wmi.windows.remote.WindowsRemoteExecutor;
-import org.metricshub.wmi.windows.remote.share.WindowsTempShare;
-import org.metricshub.wmi.exceptions.WmiComException;
-import org.metricshub.wmi.wbem.WmiWbemServices;
 import com.sun.jna.Native;
-import com.sun.jna.platform.win32.*;
+import com.sun.jna.platform.win32.Advapi32;
+import com.sun.jna.platform.win32.Advapi32Util;
 import com.sun.jna.platform.win32.COM.WbemcliUtil;
 import com.sun.jna.platform.win32.COM.util.Factory;
+import com.sun.jna.platform.win32.Kernel32;
+import com.sun.jna.platform.win32.LMAccess;
+import com.sun.jna.platform.win32.LMShare;
 import com.sun.jna.platform.win32.LMShare.SHARE_INFO_502;
+import com.sun.jna.platform.win32.Netapi32;
+import com.sun.jna.platform.win32.Win32Exception;
 import com.sun.jna.platform.win32.WinDef.DWORD;
-import com.sun.jna.platform.win32.WinNT.*;
+import com.sun.jna.platform.win32.WinNT;
+import com.sun.jna.platform.win32.WinNT.ACCESS_ALLOWED_ACE;
+import com.sun.jna.platform.win32.WinNT.ACL;
+import com.sun.jna.platform.win32.WinNT.PSID;
+import com.sun.jna.platform.win32.WinNT.SECURITY_DESCRIPTOR;
+import com.sun.jna.platform.win32.WinNT.WELL_KNOWN_SID_TYPE;
 import com.sun.jna.ptr.IntByReference;
-
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.metricshub.wmi.Utils;
+import org.metricshub.wmi.WmiHelper;
+import org.metricshub.wmi.exceptions.WindowsRemoteException;
+import org.metricshub.wmi.exceptions.WmiComException;
+import org.metricshub.wmi.wbem.WmiWbemServices;
+import org.metricshub.wmi.windows.remote.WindowsRemoteExecutor;
+import org.metricshub.wmi.windows.remote.share.WindowsTempShare;
 
 /**
  * Class representing a connection to a Windows share
@@ -51,9 +61,10 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	private static final int SUCCESS = 0;
 	private static final int ALREADY_EXIST = 2118;
 
-
 	private static final Factory FACTORY = new Factory();
-	private static final WindowsScriptHostNetworkInterface WSH = FACTORY.createObject(WindowsScriptHostNetworkInterface.class);;
+	private static final WindowsScriptHostNetworkInterface WSH = FACTORY.createObject(
+		WindowsScriptHostNetworkInterface.class
+	);
 
 	private static final ConcurrentHashMap<String, WinTempShare> CONNECTIONS_CACHE = new ConcurrentHashMap<>();
 
@@ -62,7 +73,6 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 
 	/** How many "clients" are using this instance */
 	private final AtomicInteger useCount = new AtomicInteger(1);
-
 
 	/**
 	 * Constructor of WinTempShare
@@ -73,10 +83,7 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	 * @param shareNameOrUnc The name of the share, or its full UNC path
 	 * @param remotePath The path on the remote system of the directory being shared
 	 */
-	WinTempShare(
-			final WmiWbemServices wmiWbemServices,
-			final String shareNameOrUnc,
-			final String remotePath) {
+	WinTempShare(final WmiWbemServices wmiWbemServices, final String shareNameOrUnc, final String remotePath) {
 		super(wmiWbemServices, shareNameOrUnc, remotePath);
 		this.hostname = wmiWbemServices.getHostname();
 	}
@@ -95,91 +102,88 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	 * @throws WmiComException For any problem encountered with JNA.
 	 */
 	public static WinTempShare getInstance(
-			final String hostname,
-			final String username,
-			final char[] password,
-			final long timeout
-			) throws TimeoutException, WmiComException {
-
+		final String hostname,
+		final String username,
+		final char[] password,
+		final long timeout
+	) throws TimeoutException, WmiComException {
 		Utils.checkNonNull(hostname, "hostname");
 		Utils.checkArgumentNotZeroOrNegative(timeout, "timeout");
 
 		try {
 			return CONNECTIONS_CACHE.compute(
-					hostname.toLowerCase(),
-					(h, winTempShare) -> {
-						if (winTempShare == null) {
-							WmiWbemServices wmiWbemServices = null;
+				hostname.toLowerCase(),
+				(h, winTempShare) -> {
+					if (winTempShare == null) {
+						WmiWbemServices wmiWbemServices = null;
 
-							try {
+						try {
+							// Get the WbemServices
+							final String networkResource = WmiHelper.createNetworkResource(hostname, WbemcliUtil.DEFAULT_NAMESPACE);
+							wmiWbemServices = WmiWbemServices.getInstance(networkResource, username, password);
 
-								// Get the WbemServices
-								final String networkResource = WmiHelper.createNetworkResource(hostname, WbemcliUtil.DEFAULT_NAMESPACE);
-								wmiWbemServices = WmiWbemServices.getInstance(networkResource, username, password);
-
-								// Get the share if it exists, or create it
-								final WindowsTempShare share = getOrCreateShare(
-										wmiWbemServices,
-										timeout,
-										(w, r, s, t) -> {
-											try {
-												shareRemoteDirectory(w, r, s, t);
-											} catch (final WindowsRemoteException e) {
-												// Throw as a RuntimeException, so we catch it later (see below)
-												throw new RuntimeException(e);
-											}
-										});
-
-								// Connect to it
-								getWindowsScriptHostNetwork().mapNetworkDrive(
-										Utils.EMPTY,
-										share.getUncSharePath(),
-										false,
-										username,
-										password == null ? null : String.valueOf(password));
-
-								return new WinTempShare(
-										(WmiWbemServices) share.getWindowsRemoteExecutor(),
-										share.getUncSharePath(),
-										share.getRemotePath());
-
-							} catch (final RuntimeException e) {
-								if (wmiWbemServices != null) {
-									wmiWbemServices.close();
+							// Get the share if it exists, or create it
+							final WindowsTempShare share = getOrCreateShare(
+								wmiWbemServices,
+								timeout,
+								(w, r, s, t) -> {
+									try {
+										shareRemoteDirectory(w, r, s, t);
+									} catch (final WindowsRemoteException e) {
+										// Throw as a RuntimeException, so we catch it later (see below)
+										throw new RuntimeException(e);
+									}
 								}
+							);
 
-								throw e;
+							// Connect to it
+							getWindowsScriptHostNetwork()
+								.mapNetworkDrive(
+									Utils.EMPTY,
+									share.getUncSharePath(),
+									false,
+									username,
+									password == null ? null : String.valueOf(password)
+								);
 
-							} catch (final Exception e) {
-								if (wmiWbemServices != null) {
-									wmiWbemServices.close();
-								}
-
-								// Throw as a RuntimeException, so we catch it later (see below)
-								throw new RuntimeException(e);
+							return new WinTempShare(
+								(WmiWbemServices) share.getWindowsRemoteExecutor(),
+								share.getUncSharePath(),
+								share.getRemotePath()
+							);
+						} catch (final RuntimeException e) {
+							if (wmiWbemServices != null) {
+								wmiWbemServices.close();
 							}
-						} else {
 
-							// We already have this share
-							synchronized (winTempShare) {
-
-								// Increment the number of callers
-								winTempShare.incrementUseCount();
-
-								// And simply return the same reference (so that the map is not changed)
-								return winTempShare;
+							throw e;
+						} catch (final Exception e) {
+							if (wmiWbemServices != null) {
+								wmiWbemServices.close();
 							}
+
+							// Throw as a RuntimeException, so we catch it later (see below)
+							throw new RuntimeException(e);
 						}
-					});
+					} else {
+						// We already have this share
+						synchronized (winTempShare) {
+							// Increment the number of callers
+							winTempShare.incrementUseCount();
+
+							// And simply return the same reference (so that the map is not changed)
+							return winTempShare;
+						}
+					}
+				}
+			);
 		} catch (final RuntimeException e) {
 			final Throwable cause = e.getCause();
 			if (cause != null) {
 				if (cause instanceof TimeoutException) {
 					throw (TimeoutException) cause;
-
 				} else if (cause instanceof WmiComException) {
 					throw (WmiComException) cause;
-
 				} else if (cause instanceof InterruptedException) {
 					throw new TimeoutException(cause.getClass().getSimpleName() + ": " + cause.getMessage());
 				}
@@ -191,7 +195,6 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 
 	@Override
 	public synchronized void close() {
-
 		if (useCount.decrementAndGet() == 0) {
 			CONNECTIONS_CACHE.remove(hostname.toLowerCase());
 
@@ -201,7 +204,6 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 			getWindowsScriptHostNetwork().removeNetworkDrive(getUncSharePath(), true, false);
 		}
 	}
-
 
 	/**
 	 * @return whether we are connected to this share and can interact with it
@@ -230,12 +232,11 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	 * @throws WmiComException For any problem encountered with JNA
 	 */
 	private static void shareRemoteDirectory(
-			final WindowsRemoteExecutor wmiWbemServices,
-			final String remotePath,
-			final String shareName,
-			final long timeout
-			) throws WmiComException {
-
+		final WindowsRemoteExecutor wmiWbemServices,
+		final String remotePath,
+		final String shareName,
+		final long timeout
+	) throws WmiComException {
 		final SECURITY_DESCRIPTOR securityDescriptor = initializeSecurityDescriptor();
 
 		final SHARE_INFO_502 shareInfo502 = new SHARE_INFO_502();
@@ -255,10 +256,11 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 
 		final IntByReference parmErr = new IntByReference(0);
 		final int result = Netapi32.INSTANCE.NetShareAdd(
-				wmiWbemServices.getHostname(),
-				502,
-				shareInfo502.getPointer(),
-				parmErr);
+			wmiWbemServices.getHostname(),
+			502,
+			shareInfo502.getPointer(),
+			parmErr
+		);
 		if (result != SUCCESS && result != ALREADY_EXIST) {
 			final Exception e = new Win32Exception(result);
 			throw new WmiComException(e, e.getMessage());
@@ -274,14 +276,10 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	 * @return The Security Descriptor
 	 * @throws WmiComException For any problem encountered with JNA
 	 */
-	private static SECURITY_DESCRIPTOR initializeSecurityDescriptor()
-			throws WmiComException {
+	private static SECURITY_DESCRIPTOR initializeSecurityDescriptor() throws WmiComException {
+		final PSID pSidSystem = createSID(WELL_KNOWN_SID_TYPE.WinLocalSystemSid);
 
-		final PSID pSidSystem = createSID(
-				WELL_KNOWN_SID_TYPE.WinLocalSystemSid);
-
-		final PSID pSidAdministrator = createSID(
-				WELL_KNOWN_SID_TYPE.WinBuiltinAdministratorsSid);
+		final PSID pSidAdministrator = createSID(WELL_KNOWN_SID_TYPE.WinBuiltinAdministratorsSid);
 
 		final int sidSysLength = Advapi32.INSTANCE.GetLengthSid(pSidSystem);
 		final int sidAdminLength = Advapi32.INSTANCE.GetLengthSid(pSidAdministrator);
@@ -293,39 +291,21 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 		cbAcl = Advapi32Util.alignOnDWORD(cbAcl);
 		final ACL pAcl = new ACL(cbAcl);
 
-		checkWin32Result(
-				Advapi32.INSTANCE.InitializeAcl(
-						pAcl,
-						cbAcl,
-						WinNT.ACL_REVISION));
+		checkWin32Result(Advapi32.INSTANCE.InitializeAcl(pAcl, cbAcl, WinNT.ACL_REVISION));
+
+		checkWin32Result(Advapi32.INSTANCE.AddAccessAllowedAce(pAcl, WinNT.ACL_REVISION, WinNT.GENERIC_ALL, pSidSystem));
 
 		checkWin32Result(
-				Advapi32.INSTANCE.AddAccessAllowedAce(
-						pAcl,
-						WinNT.ACL_REVISION,
-						WinNT.GENERIC_ALL,
-						pSidSystem));
-
-		checkWin32Result(
-				Advapi32.INSTANCE.AddAccessAllowedAce(
-						pAcl,
-						WinNT.ACL_REVISION,
-						WinNT.GENERIC_ALL,
-						pSidAdministrator));
+			Advapi32.INSTANCE.AddAccessAllowedAce(pAcl, WinNT.ACL_REVISION, WinNT.GENERIC_ALL, pSidAdministrator)
+		);
 
 		final SECURITY_DESCRIPTOR securityDescriptor = new SECURITY_DESCRIPTOR(64 * 1024);
 
 		checkWin32Result(
-				Advapi32.INSTANCE.InitializeSecurityDescriptor(
-						securityDescriptor,
-						WinNT.SECURITY_DESCRIPTOR_REVISION));
+			Advapi32.INSTANCE.InitializeSecurityDescriptor(securityDescriptor, WinNT.SECURITY_DESCRIPTOR_REVISION)
+		);
 
-		checkWin32Result(
-				Advapi32.INSTANCE.SetSecurityDescriptorDacl(
-						securityDescriptor,
-						true,
-						pAcl,
-						false));
+		checkWin32Result(Advapi32.INSTANCE.SetSecurityDescriptorDacl(securityDescriptor, true, pAcl, false));
 
 		return securityDescriptor;
 	}
@@ -341,12 +321,7 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 		final PSID pSid = new PSID(WinNT.SECURITY_MAX_SID_SIZE);
 		final IntByReference cbSid = new IntByReference(WinNT.SECURITY_MAX_SID_SIZE);
 
-		checkWin32Result(
-				Advapi32.INSTANCE.CreateWellKnownSid(
-						wellKnownSidTypeAlias,
-						null,
-						pSid,
-						cbSid));
+		checkWin32Result(Advapi32.INSTANCE.CreateWellKnownSid(wellKnownSidTypeAlias, null, pSid, cbSid));
 		return pSid;
 	}
 
@@ -375,5 +350,4 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	static WindowsScriptHostNetworkInterface getWindowsScriptHostNetwork() {
 		return WSH;
 	}
-
 }

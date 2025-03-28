@@ -1,23 +1,22 @@
 package org.metricshub.wmi.shares;
 
-import org.metricshub.wmi.Utils;
-import org.metricshub.wmi.windows.remote.WindowsRemoteExecutor;
-import org.metricshub.wmi.windows.remote.share.ShareRemoteDirectoryConsumer;
-import org.metricshub.wmi.windows.remote.share.WindowsTempShare;
-import org.metricshub.wmi.wbem.WmiWbemServices;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.metricshub.wmi.Utils;
+import org.metricshub.wmi.wbem.WmiWbemServices;
+import org.metricshub.wmi.windows.remote.WindowsRemoteExecutor;
+import org.metricshub.wmi.windows.remote.share.ShareRemoteDirectoryConsumer;
+import org.metricshub.wmi.windows.remote.share.WindowsTempShare;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @EnabledOnOs(OS.WINDOWS)
 class WinTempShareTest {
@@ -28,15 +27,16 @@ class WinTempShareTest {
 	@SuppressWarnings("unchecked")
 	@Test
 	void testGetInstance() throws Exception {
-
 		final WmiWbemServices wmiWbemServices = Mockito.mock(WmiWbemServices.class);
-		final WindowsScriptHostNetworkInterface windowsScriptHostNetwork = Mockito.mock(WindowsScriptHostNetworkInterface.class);
+		final WindowsScriptHostNetworkInterface windowsScriptHostNetwork = Mockito.mock(
+			WindowsScriptHostNetworkInterface.class
+		);
 		final String hostname = "localhost";
 		final String networkResource = "\\\\localhost\\ROOT\\CIMV2";
 		Mockito.when(wmiWbemServices.getHostname()).thenReturn(hostname);
 		final String username = null;
 		final char[] password = null;
-		final long timeout = 60*1000;
+		final long timeout = 60 * 1000;
 		final String uncSharePath = "\\\\localhost\\test";
 		final String remotePath = "c:\\windows\\temp";
 		final WindowsTempShare windowsTempShare1 = new WindowsTempShare(wmiWbemServices, uncSharePath, remotePath);
@@ -50,20 +50,30 @@ class WinTempShareTest {
 		assertThrows(IllegalArgumentException.class, () -> WinTempShare.getInstance(hostname, username, password, 0));
 
 		// check create instance
-		try (final MockedStatic<WinTempShare> mockedWinTempShareClass = Mockito.mockStatic(WinTempShare.class);
-				final MockedStatic<WindowsTempShare>mockedWindowsTempShare = Mockito.mockStatic(WindowsTempShare.class);
-				final MockedStatic<WmiWbemServices> mockedWmiWbemServices = Mockito.mockStatic(WmiWbemServices.class)) {
-			mockedWmiWbemServices.when(() -> WmiWbemServices.getInstance(networkResource, username, password)).thenReturn(wmiWbemServices);
+		try (
+			final MockedStatic<WinTempShare> mockedWinTempShareClass = Mockito.mockStatic(WinTempShare.class);
+			final MockedStatic<WindowsTempShare> mockedWindowsTempShare = Mockito.mockStatic(WindowsTempShare.class);
+			final MockedStatic<WmiWbemServices> mockedWmiWbemServices = Mockito.mockStatic(WmiWbemServices.class)
+		) {
+			mockedWmiWbemServices
+				.when(() -> WmiWbemServices.getInstance(networkResource, username, password))
+				.thenReturn(wmiWbemServices);
 			mockedWinTempShareClass.when(WinTempShare::getWindowsScriptHostNetwork).thenReturn(windowsScriptHostNetwork);
-			mockedWindowsTempShare.when(() -> WindowsTempShare.getOrCreateShare(
-				Mockito.any(WindowsRemoteExecutor.class),
-				Mockito.anyLong(),
-				Mockito.any(ShareRemoteDirectoryConsumer.class)))
-			.thenReturn(windowsTempShare1, windowsTempShare2);
+			mockedWindowsTempShare
+				.when(() ->
+					WindowsTempShare.getOrCreateShare(
+						Mockito.any(WindowsRemoteExecutor.class),
+						Mockito.anyLong(),
+						Mockito.any(ShareRemoteDirectoryConsumer.class)
+					)
+				)
+				.thenReturn(windowsTempShare1, windowsTempShare2);
 
 			Mockito.doNothing().when(windowsScriptHostNetwork).mapNetworkDrive(Utils.EMPTY, uncSharePath, false, null, null);
 
-			mockedWinTempShareClass.when(() -> WinTempShare.getInstance(hostname, username, password, timeout)).thenCallRealMethod();
+			mockedWinTempShareClass
+				.when(() -> WinTempShare.getInstance(hostname, username, password, timeout))
+				.thenCallRealMethod();
 
 			final WinTempShare winTempShare = WinTempShare.getInstance(hostname, username, password, timeout);
 
@@ -117,7 +127,6 @@ class WinTempShareTest {
 
 	@Test
 	void testCreateRemoteDirectory() throws Exception {
-
 		final Path remotePath = Paths.get(tempDir.toAbsolutePath().toString(), "remoteDirectory");
 		final long timeout = 60 * 1000L;
 
@@ -129,5 +138,4 @@ class WinTempShareTest {
 			Assertions.assertTrue(Files.exists(remotePath));
 		}
 	}
-
 }

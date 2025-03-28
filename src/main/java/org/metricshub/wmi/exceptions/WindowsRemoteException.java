@@ -28,7 +28,7 @@ public class WindowsRemoteException extends Exception {
 		super(message);
 	}
 
-	public WindowsRemoteException(final String messageFromat, final Object...args) {
+	public WindowsRemoteException(final String messageFromat, final Object... args) {
 		super(String.format(messageFromat, args));
 	}
 
@@ -36,12 +36,11 @@ public class WindowsRemoteException extends Exception {
 		super(message, cause);
 	}
 
-	public WindowsRemoteException(final Throwable cause, final String messageFromat, final Object...args) {
+	public WindowsRemoteException(final Throwable cause, final String messageFromat, final Object... args) {
 		super(String.format(messageFromat, args), cause);
 	}
 
 	public WindowsRemoteException(final Throwable cause) {
 		super(cause);
 	}
-
 }

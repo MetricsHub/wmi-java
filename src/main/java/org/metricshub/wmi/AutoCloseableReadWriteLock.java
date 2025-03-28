@@ -51,6 +51,7 @@ public class AutoCloseableReadWriteLock extends ReentrantReadWriteLock {
 	public AutoCloseableReadWriteLock() {
 		super();
 	}
+
 	/**
 	 * Locks the "read lock" of the {@link ReentrantReadWriteLock}. Use this to enter
 	 * a section of the code that doesn't require exclusive access.
@@ -69,7 +70,6 @@ public class AutoCloseableReadWriteLock extends ReentrantReadWriteLock {
 		return new AutoCloseableWriteLock(this.writeLock());
 	}
 
-
 	/**
 	 * Auto-closeable version of {@link ReadLock}
 	 */
@@ -86,9 +86,7 @@ public class AutoCloseableReadWriteLock extends ReentrantReadWriteLock {
 		public void close() {
 			readLock.unlock();
 		}
-
 	}
-
 
 	/**
 	 * Auto-closeable version of {@link WriteLock}
@@ -106,7 +104,5 @@ public class AutoCloseableReadWriteLock extends ReentrantReadWriteLock {
 		public void close() {
 			writeLock.unlock();
 		}
-
 	}
-
 }

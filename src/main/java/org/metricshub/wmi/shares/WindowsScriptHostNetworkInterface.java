@@ -27,11 +27,8 @@ import com.sun.jna.platform.win32.COM.util.annotation.ComObject;
  * Interface of Windows Script Host Network Object.
  *
  */
-@ComObject(
-		clsId="{093FF999-1EA0-4079-9525-9614C3504B74}",
-		progId="WScript.Network")
+@ComObject(clsId = "{093FF999-1EA0-4079-9525-9614C3504B74}", progId = "WScript.Network")
 public interface WindowsScriptHostNetworkInterface {
-
 	/**
 	 * Add a shared network drive mapping.
 	 *
@@ -41,13 +38,8 @@ public interface WindowsScriptHostNetworkInterface {
 	 * @param user The user name.
 	 * @param password The user password.
 	 */
-	@ComMethod(name="MapNetworkDrive")
-	void mapNetworkDrive (
-			String localName,
-			String remoteName,
-			Boolean updateProfile,
-			String user,
-			String password);
+	@ComMethod(name = "MapNetworkDrive")
+	void mapNetworkDrive(String localName, String remoteName, Boolean updateProfile, String user, String password);
 
 	/**
 	 * Remove a shared network drive mapping.
@@ -56,10 +48,6 @@ public interface WindowsScriptHostNetworkInterface {
 	 * @param force Indicate whether to force the removal of the mapped drive.
 	 * @param updateProfile Indicate whether to remove the mapping from the user's profile.
 	 */
-	@ComMethod(name="RemoveNetworkDrive")
-	void removeNetworkDrive (
-			String name,
-			Boolean force,
-			Boolean updateProfile) ;
-
+	@ComMethod(name = "RemoveNetworkDrive")
+	void removeNetworkDrive(String name, Boolean force, Boolean updateProfile);
 }

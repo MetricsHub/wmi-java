@@ -20,16 +20,14 @@ package org.metricshub.wmi.windows.remote;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
-import org.metricshub.wmi.exceptions.WindowsRemoteException;
-import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
-
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import org.metricshub.wmi.exceptions.WindowsRemoteException;
+import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
 
 public interface WindowsRemoteExecutor extends AutoCloseable {
-
 	/**
 	 * <p>Execute a WQL query and process its result.</p>
 	 *
@@ -41,9 +39,8 @@ public interface WindowsRemoteExecutor extends AutoCloseable {
 	 * @throws WqlQuerySyntaxException if WQL query syntax is invalid
 	 * @throws WindowsRemoteException For any problem encountered
 	 */
-	public List<Map<String, Object>> executeWql(
-			final String wqlQuery,
-			final long timeout) throws TimeoutException, WqlQuerySyntaxException, WindowsRemoteException;
+	List<Map<String, Object>> executeWql(String wqlQuery, long timeout)
+		throws TimeoutException, WqlQuerySyntaxException, WindowsRemoteException;
 
 	/**
 	 * Execute the command on the remote
@@ -55,28 +52,24 @@ public interface WindowsRemoteExecutor extends AutoCloseable {
 	 * @throws WindowsRemoteException For any problem encountered
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
-	public WindowsRemoteCommandResult executeCommand(
-			final String command,
-			final String workingDirectory,
-			final Charset charset,
-			final long timeout
-			) throws WindowsRemoteException, TimeoutException;
+	WindowsRemoteCommandResult executeCommand(String command, String workingDirectory, Charset charset, long timeout)
+		throws WindowsRemoteException, TimeoutException;
 
 	/**
 	 * Get the hostname.
 	 * @return
 	 */
-	public String getHostname();
+	String getHostname();
 
 	/**
 	 * Get the username.
 	 * @return
 	 */
-	public String getUsername();
+	String getUsername();
 
 	/**
 	 * Get the password.
 	 * @return
 	 */
-	public char[] getPassword();
+	char[] getPassword();
 }

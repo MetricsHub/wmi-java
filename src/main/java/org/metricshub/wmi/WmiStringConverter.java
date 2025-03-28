@@ -41,8 +41,10 @@ public class WmiStringConverter {
 	/**
 	 * Format for date/times (non-Epoch)
 	 */
-	private static final DateTimeFormatter CSV_US_DATE_TIME_FORMATTER =
-			DateTimeFormatter.ofPattern("EE MMM dd HH:mm:ss yyyy", Locale.US);
+	private static final DateTimeFormatter CSV_US_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(
+		"EE MMM dd HH:mm:ss yyyy",
+		Locale.US
+	);
 
 	private String arraySeparator;
 	private boolean epoch;
@@ -85,28 +87,28 @@ public class WmiStringConverter {
 	 * @return a string
 	 */
 	public String convert(Object value) {
-
 		if (value == null) {
 			return Utils.EMPTY;
 		}
 
 		if (value.getClass().isArray()) {
-			return Stream.of((Object[])value)
-					.map(this::convert)
-					.map(item -> item.replace(arraySeparator, Utils.EMPTY))
-					.collect(Collectors.joining(arraySeparator, Utils.EMPTY, arraySeparator));
+			return Stream
+				.of((Object[]) value)
+				.map(this::convert)
+				.map(item -> item.replace(arraySeparator, Utils.EMPTY))
+				.collect(Collectors.joining(arraySeparator, Utils.EMPTY, arraySeparator));
 		}
 
 		if (value instanceof String) {
-			return (String)value;
+			return (String) value;
 		} else if (value instanceof Boolean) {
-			return (Boolean)value ? TRUE_STRING : FALSE_STRING;
+			return (Boolean) value ? TRUE_STRING : FALSE_STRING;
 		} else if (value instanceof OffsetDateTime) {
-			return epoch ?
-					String.valueOf(((OffsetDateTime)value).toEpochSecond()) : ((OffsetDateTime)value).format(CSV_US_DATE_TIME_FORMATTER);
+			return epoch
+				? String.valueOf(((OffsetDateTime) value).toEpochSecond())
+				: ((OffsetDateTime) value).format(CSV_US_DATE_TIME_FORMATTER);
 		} else {
 			return String.valueOf(value);
 		}
 	}
-
 }

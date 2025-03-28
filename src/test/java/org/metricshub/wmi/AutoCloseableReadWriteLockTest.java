@@ -34,5 +34,4 @@ class AutoCloseableReadWriteLockTest {
 		assertEquals(0, rwLock.getWriteHoldCount());
 		assertFalse(rwLock.isWriteLocked());
 	}
-
 }

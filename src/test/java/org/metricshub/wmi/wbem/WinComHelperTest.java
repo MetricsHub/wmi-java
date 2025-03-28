@@ -1,16 +1,15 @@
 package org.metricshub.wmi.wbem;
 
-import org.metricshub.wmi.exceptions.WmiComException;
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.lang.Thread.UncaughtExceptionHandler;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
-
-import java.lang.Thread.UncaughtExceptionHandler;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.metricshub.wmi.exceptions.WmiComException;
 
 @EnabledOnOs(OS.WINDOWS)
 class WinComHelperTest {
@@ -32,7 +31,6 @@ class WinComHelperTest {
 
 	@Test
 	void testInitializeCOMLibrary() throws Exception {
-
 		assertFalse(WmiComHelper.isComInitialized(), "COM must not be initialized, at first");
 		WmiComHelper.initializeComLibrary();
 		WmiComHelper.initializeComLibrary(); // Second call must not throw any exception
@@ -44,7 +42,6 @@ class WinComHelperTest {
 
 	@Test
 	void testInitializeCOMLibraryMultiThread() throws Exception {
-
 		AtomicInteger failureCount = new AtomicInteger(0);
 
 		UncaughtExceptionHandler exHandler = new UncaughtExceptionHandler() {
@@ -75,7 +72,6 @@ class WinComHelperTest {
 				if (WmiComHelper.isComInitialized()) {
 					throw new RuntimeException("COM must be uninitialized now");
 				}
-
 			}
 		};
 
@@ -89,7 +85,5 @@ class WinComHelperTest {
 
 		assertEquals(0, failureCount.get(), "No exception from thread must have been thrown");
 		assertTrue(WmiComHelper.isComInitialized(), "COM must still be initialized");
-
 	}
-
 }

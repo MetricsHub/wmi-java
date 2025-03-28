@@ -20,8 +20,6 @@ package org.metricshub.wmi;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
-import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -33,6 +31,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
 
 public class WqlQuery {
 
@@ -46,17 +45,21 @@ public class WqlQuery {
 	 * <li>group(5) = Rest of the WQL statement (WHERE, etc.)
 	 */
 	private static final Pattern WQL_PATTERN = Pattern.compile(
-			"^\\s*(SELECT\\s+(?:\\*|([a-z0-9._]+(?:\\s*,\\s*[a-z0-9._]+)*))\\s+FROM\\s+)?(?:((?:ASSOCIATORS|REFERENCES)\\s+OF\\s+\\{.*\\})|([a-z0-9_]+))(\\s+WHERE\\s*+.+)?\\s*$",
-			Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+		"^\\s*(SELECT\\s+(?:\\*|([a-z0-9._]+(?:\\s*,\\s*[a-z0-9._]+)*))\\s+FROM\\s+)?(?:((?:ASSOCIATORS|REFERENCES)\\s+OF\\s+\\{.*\\})|([a-z0-9_]+))(\\s+WHERE\\s*+.+)?\\s*$",
+		Pattern.CASE_INSENSITIVE | Pattern.DOTALL
 	);
-
 
 	private String wql;
 	private List<String> selectedProperties;
 	private Map<String, Set<String>> subPropertiesMap;
 	private String cleanWql;
 
-	private WqlQuery(String wql, List<String> selectedProperties, Map<String, Set<String>> subPropertiesMap, String cleanWql) {
+	private WqlQuery(
+		String wql,
+		List<String> selectedProperties,
+		Map<String, Set<String>> subPropertiesMap,
+		String cleanWql
+	) {
 		this.wql = wql;
 		this.selectedProperties = selectedProperties;
 		this.subPropertiesMap = subPropertiesMap;
@@ -82,7 +85,6 @@ public class WqlQuery {
 	 * @throws IllegalArgumentException if wql is null
 	 */
 	public static WqlQuery newInstance(CharSequence wql) throws WqlQuerySyntaxException {
-
 		Utils.checkNonNull(wql, "wql");
 
 		Matcher wqlMatcher = WQL_PATTERN.matcher(wql);
@@ -141,26 +143,27 @@ public class WqlQuery {
 	 * @return The map as described above
 	 */
 	static Map<String, Set<String>> buildSupPropertiesMap(final List<String> properties) {
-
 		// Empty or null?
 		if (properties == null || properties.isEmpty()) {
 			return new HashMap<>();
 		}
 
 		Map<String, Set<String>> subPropertiesMap = new LinkedHashMap<>();
-		properties.stream()
-				.filter(Utils::isNotBlank)
-				.forEachOrdered(property -> {
+		properties
+			.stream()
+			.filter(Utils::isNotBlank)
+			.forEachOrdered(property -> {
+				// Split the property into fragments:
+				// propA => ["propA"]
+				// propA.subProp => ["propA", "subProp"]
+				String[] propertyFragmentArray = property.toLowerCase().split("\\.", 2);
+				String mainProperty = propertyFragmentArray[0];
+				String subProperty = propertyFragmentArray.length == 2 ? propertyFragmentArray[1] : null;
 
-					// Split the property into fragments:
-					// propA => ["propA"]
-					// propA.subProp => ["propA", "subProp"]
-					String[] propertyFragmentArray = property.toLowerCase().split("\\.", 2);
-					String mainProperty = propertyFragmentArray[0];
-					String subProperty = propertyFragmentArray.length == 2 ? propertyFragmentArray[1] : null;
-
-					// Add this entry to the map
-					subPropertiesMap.compute(mainProperty, (key, subPropertiesSet) -> {
+				// Add this entry to the map
+				subPropertiesMap.compute(
+					mainProperty,
+					(key, subPropertiesSet) -> {
 						if (subPropertiesSet == null) {
 							subPropertiesSet = new HashSet<>();
 						}
@@ -168,11 +171,11 @@ public class WqlQuery {
 							subPropertiesSet.add(subProperty);
 						}
 						return subPropertiesSet;
-					});
-				});
+					}
+				);
+			});
 
 		return subPropertiesMap;
-
 	}
 
 	/**
@@ -196,23 +199,23 @@ public class WqlQuery {
 	 * @return a clean and strict WQL statement
 	 */
 	static String buildCleanWql(
-			String associatorsFragment,
-			Map<String, Set<String>> subPropertiesMap,
-			String classFragment,
-			String restFragment
+		String associatorsFragment,
+		Map<String, Set<String>> subPropertiesMap,
+		String classFragment,
+		String restFragment
 	) {
-
 		String cleanWql;
 
 		if (associatorsFragment == null) {
 			if (subPropertiesMap.keySet().isEmpty()) {
 				cleanWql = "SELECT * FROM " + classFragment;
 			} else {
-				cleanWql = String.format(
+				cleanWql =
+					String.format(
 						"SELECT %s FROM %s",
 						subPropertiesMap.keySet().stream().collect(Collectors.joining(",")),
 						classFragment
-				);
+					);
 			}
 		} else {
 			cleanWql = associatorsFragment;

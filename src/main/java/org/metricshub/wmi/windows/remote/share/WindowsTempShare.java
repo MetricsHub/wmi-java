@@ -20,15 +20,14 @@ package org.metricshub.wmi.windows.remote.share;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 import org.metricshub.wmi.TimeoutHelper;
 import org.metricshub.wmi.Utils;
 import org.metricshub.wmi.exceptions.WindowsRemoteException;
 import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
 import org.metricshub.wmi.windows.remote.WindowsRemoteExecutor;
-
-import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.TimeoutException;
 
 public class WindowsTempShare {
 
@@ -52,10 +51,10 @@ public class WindowsTempShare {
 	 * @param remotePath The path on the remote system of the directory being shared
 	 */
 	public WindowsTempShare(
-			final WindowsRemoteExecutor windowsRemoteExecutor,
-			final String shareNameOrUnc,
-			final String remotePath) {
-
+		final WindowsRemoteExecutor windowsRemoteExecutor,
+		final String shareNameOrUnc,
+		final String remotePath
+	) {
 		Utils.checkNonNull(windowsRemoteExecutor, "windowsRemoteExecutor");
 		Utils.checkNonNull(shareNameOrUnc, "shareNameOrUnc");
 
@@ -83,11 +82,10 @@ public class WindowsTempShare {
 	 * @throws WindowsRemoteException For any problem encountered.
 	 */
 	public static WindowsTempShare getOrCreateShare(
-			final WindowsRemoteExecutor windowsRemoteExecutor,
-			final long timeout,
-			final ShareRemoteDirectoryConsumer<WindowsRemoteExecutor, String, String, Long> shareRemoteDirectory)
-					throws TimeoutException, WindowsRemoteException {
-
+		final WindowsRemoteExecutor windowsRemoteExecutor,
+		final long timeout,
+		final ShareRemoteDirectoryConsumer<WindowsRemoteExecutor, String, String, Long> shareRemoteDirectory
+	) throws TimeoutException, WindowsRemoteException {
 		Utils.checkNonNull(windowsRemoteExecutor, "windowsRemoteExecutor");
 		Utils.checkArgumentNotZeroOrNegative(timeout, "timeout");
 		Utils.checkNonNull(shareRemoteDirectory, "shareRemoteDirectory");
@@ -99,8 +97,9 @@ public class WindowsTempShare {
 
 		// Try to get a clustered share
 		final Optional<WindowsTempShare> clusterShare = getClusterShare(
-				windowsRemoteExecutor,
-				TimeoutHelper.getRemainingTime(timeout, start, "No time left to check for cluster share"));
+			windowsRemoteExecutor,
+			TimeoutHelper.getRemainingTime(timeout, start, "No time left to check for cluster share")
+		);
 
 		if (clusterShare.isPresent()) {
 			return clusterShare.get();
@@ -109,18 +108,20 @@ public class WindowsTempShare {
 		// Normal case (non-cluster)
 		final String shareName = buildShareName();
 		final Optional<WindowsTempShare> share = getShare(
-				windowsRemoteExecutor,
-				shareName,
-				TimeoutHelper.getRemainingTime(timeout, start, "No time left to get a normal temporary share"));
+			windowsRemoteExecutor,
+			shareName,
+			TimeoutHelper.getRemainingTime(timeout, start, "No time left to get a normal temporary share")
+		);
 		if (share.isPresent()) {
 			return share.get();
 		}
 
 		return createTempShare(
-				windowsRemoteExecutor,
-				shareName,
-				TimeoutHelper.getRemainingTime(timeout, start, "No time left to create the temporary share"),
-				shareRemoteDirectory);
+			windowsRemoteExecutor,
+			shareName,
+			TimeoutHelper.getRemainingTime(timeout, start, "No time left to create the temporary share"),
+			shareRemoteDirectory
+		);
 	}
 
 	/**
@@ -135,28 +136,25 @@ public class WindowsTempShare {
 	 * Win32_OperatingSystem class</a>
 	 *
 	 */
-	public static String getWindowsDirectory(
-			final WindowsRemoteExecutor windowsRemoteExecutor,
-			final long timeout) throws WindowsRemoteException, TimeoutException {
-
+	public static String getWindowsDirectory(final WindowsRemoteExecutor windowsRemoteExecutor, final long timeout)
+		throws WindowsRemoteException, TimeoutException {
 		Utils.checkNonNull(windowsRemoteExecutor, "windowsRemoteExecutor");
 		Utils.checkArgumentNotZeroOrNegative(timeout, "timeout");
 
 		try {
 			// Extract the WindowsDirectory property from the first instance and return it (or throw an exception)
-			return windowsRemoteExecutor.executeWql(
-					"SELECT WindowsDirectory FROM Win32_OperatingSystem",
-					timeout
-					).stream()
-					.limit(1)
-					.map(row -> (String) row.get("WindowsDirectory"))
-					.filter(Objects::nonNull)
-					.findFirst()
-					.orElseThrow(
-							() -> new WindowsRemoteException(
-									String.format("Couldn't identify the Windows root directory on %s.",
-											windowsRemoteExecutor.getHostname())));
-
+			return windowsRemoteExecutor
+				.executeWql("SELECT WindowsDirectory FROM Win32_OperatingSystem", timeout)
+				.stream()
+				.limit(1)
+				.map(row -> (String) row.get("WindowsDirectory"))
+				.filter(Objects::nonNull)
+				.findFirst()
+				.orElseThrow(() ->
+					new WindowsRemoteException(
+						String.format("Couldn't identify the Windows root directory on %s.", windowsRemoteExecutor.getHostname())
+					)
+				);
 		} catch (final WqlQuerySyntaxException e) {
 			throw new WindowsRemoteException(e); // Impossible
 		}
@@ -172,17 +170,13 @@ public class WindowsTempShare {
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
 	public static void createRemoteDirectory(
-			final WindowsRemoteExecutor windowsRemoteExecutor,
-			final String remotePath,
-			final long timeout) throws WindowsRemoteException, TimeoutException {
-
+		final WindowsRemoteExecutor windowsRemoteExecutor,
+		final String remotePath,
+		final long timeout
+	) throws WindowsRemoteException, TimeoutException {
 		Utils.checkNonNull(windowsRemoteExecutor, "windowsRemoteExecutor");
 
-		windowsRemoteExecutor.executeCommand(
-				buildCreateRemoteDirectoryCommand(remotePath),
-				null,
-				null,
-				timeout);
+		windowsRemoteExecutor.executeCommand(buildCreateRemoteDirectoryCommand(remotePath), null, null, timeout);
 	}
 
 	/**
@@ -197,9 +191,9 @@ public class WindowsTempShare {
 	static String buildUncPath(final String hostname, final String share) {
 		Utils.checkNonNull(hostname, "hostname");
 
-		return hostname.contains(":") ?
-				String.format("\\\\%s.ipv6-literal.net\\%s", hostname.replace(":", "-").replace("%", "s"), share) :
-					String.format("\\\\%s\\%s", hostname, share);
+		return hostname.contains(":")
+			? String.format("\\\\%s.ipv6-literal.net\\%s", hostname.replace(":", "-").replace("%", "s"), share)
+			: String.format("\\\\%s\\%s", hostname, share);
 	}
 
 	/**
@@ -234,9 +228,7 @@ public class WindowsTempShare {
 	 * <p>
 	 * @return The remote directory path. (folder\Temp\shareName)
 	 */
-	static String buildRemotePath(
-			final String folder,
-			final String shareName) {
+	static String buildRemotePath(final String folder, final String shareName) {
 		Utils.checkNonNull(folder, "folder");
 		Utils.checkNonBlank(shareName, "shareName");
 
@@ -266,23 +258,26 @@ public class WindowsTempShare {
 	 * @throws WindowsRemoteException For any problem encountered.
 	 */
 	static Optional<WindowsTempShare> getClusterShare(
-			final WindowsRemoteExecutor windowsRemoteExecutor,
-			final long timeout) throws TimeoutException, WindowsRemoteException {
-
+		final WindowsRemoteExecutor windowsRemoteExecutor,
+		final long timeout
+	) throws TimeoutException, WindowsRemoteException {
 		try {
-			final Optional<WindowsTempShare> clusterShare = windowsRemoteExecutor.executeWql(
-					"SELECT Name,Path FROM Win32_ClusterShare WHERE "
-					+ "ServerName <> '*' AND (Type = 2147483648 OR Type = 3221225472) AND Name LIKE '%\\\\_$'",
+			final Optional<WindowsTempShare> clusterShare = windowsRemoteExecutor
+				.executeWql(
+					"SELECT Name,Path FROM Win32_ClusterShare WHERE " +
+					"ServerName <> '*' AND (Type = 2147483648 OR Type = 3221225472) AND Name LIKE '%\\\\_$'",
 					timeout
-					).stream()
-					.limit(1)
-					.map(
-							// We return a TempShare instance pointing to a subdirectory in this share
-							row -> new WindowsTempShare(
-									windowsRemoteExecutor,
-									buildPathOnCluster((String) row.get("Name")),
-									buildPathOnCluster((String) row.get("Path"))))
-					.findFirst();
+				)
+				.stream()
+				.limit(1)
+				.map(row -> // We return a TempShare instance pointing to a subdirectory in this share
+					new WindowsTempShare(
+						windowsRemoteExecutor,
+						buildPathOnCluster((String) row.get("Name")),
+						buildPathOnCluster((String) row.get("Path"))
+					)
+				)
+				.findFirst();
 
 			if (clusterShare.isPresent()) {
 				// We create the subdirectory (if necessary)
@@ -290,7 +285,6 @@ public class WindowsTempShare {
 			}
 
 			return clusterShare;
-
 		} catch (final WqlQuerySyntaxException e) {
 			throw new WindowsRemoteException(e); // Impossible
 		}
@@ -309,23 +303,17 @@ public class WindowsTempShare {
 	 * @throws WindowsRemoteException For any problem encountered
 	 */
 	static Optional<WindowsTempShare> getShare(
-			final WindowsRemoteExecutor windowsRemoteExecutor,
-			final String shareName,
-			final long timeout
-			) throws TimeoutException, WindowsRemoteException {
+		final WindowsRemoteExecutor windowsRemoteExecutor,
+		final String shareName,
+		final long timeout
+	) throws TimeoutException, WindowsRemoteException {
 		try {
-
-			return windowsRemoteExecutor.executeWql(
-					String.format("SELECT Name,Path FROM Win32_Share WHERE Name = '%s'", shareName),
-					timeout
-					).stream()
-					.limit(1)
-					.map(row -> new WindowsTempShare(
-							windowsRemoteExecutor,
-							(String) row.get("Name"),
-							(String) row.get("Path")))
-					.findFirst();
-
+			return windowsRemoteExecutor
+				.executeWql(String.format("SELECT Name,Path FROM Win32_Share WHERE Name = '%s'", shareName), timeout)
+				.stream()
+				.limit(1)
+				.map(row -> new WindowsTempShare(windowsRemoteExecutor, (String) row.get("Name"), (String) row.get("Path")))
+				.findFirst();
 		} catch (final WqlQuerySyntaxException e) {
 			throw new WindowsRemoteException(e); // Impossible
 		}
@@ -345,12 +333,11 @@ public class WindowsTempShare {
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
 	static WindowsTempShare createTempShare(
-			final WindowsRemoteExecutor windowsRemoteExecutor,
-			final String shareName,
-			final long timeout,
-			final ShareRemoteDirectoryConsumer<WindowsRemoteExecutor, String, String, Long> shareRemoteDirectory
-			) throws WindowsRemoteException, TimeoutException {
-
+		final WindowsRemoteExecutor windowsRemoteExecutor,
+		final String shareName,
+		final long timeout,
+		final ShareRemoteDirectoryConsumer<WindowsRemoteExecutor, String, String, Long> shareRemoteDirectory
+	) throws WindowsRemoteException, TimeoutException {
 		final long start = Utils.getCurrentTimeMillis();
 
 		// Find where Windows is installed on the remote system. We will create the share under %WINDIR%\Temp.
@@ -359,10 +346,10 @@ public class WindowsTempShare {
 		// Create the folder on the remote system
 		final String remotePath = buildRemotePath(folder, shareName);
 		createRemoteDirectory(
-				windowsRemoteExecutor,
-				remotePath,
-				TimeoutHelper.getRemainingTime(timeout, start, "No time left to create the temporary directory")
-				);
+			windowsRemoteExecutor,
+			remotePath,
+			TimeoutHelper.getRemainingTime(timeout, start, "No time left to create the temporary directory")
+		);
 
 		// Create the share
 		shareRemoteDirectory.apply(windowsRemoteExecutor, remotePath, shareName, timeout);

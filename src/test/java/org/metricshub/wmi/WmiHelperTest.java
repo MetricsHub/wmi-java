@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 
 public class WmiHelperTest {
@@ -33,7 +32,9 @@ public class WmiHelperTest {
 		assertFalse(WmiHelper.isValidWql("SELECT __PATH,DNSHostName,,SystemType FROM Win32_ComputerSystem"));
 		assertFalse(WmiHelper.isValidWql("SELECT __PATH,DNSHostName, ,SystemType FROM Win32_ComputerSystem"));
 		assertFalse(WmiHelper.isValidWql("SELECT ,__PATH,DNSHostName, SystemType FROM Win32_ComputerSystem"));
-		assertFalse(WmiHelper.isValidWql("SELECT __PATH   ,  DNSHostName   ,   SystemType   ,   FROM Win32_ComputerSystem"));
+		assertFalse(
+			WmiHelper.isValidWql("SELECT __PATH   ,  DNSHostName   ,   SystemType   ,   FROM Win32_ComputerSystem")
+		);
 		assertFalse(WmiHelper.isValidWql("SELECT __PATH, DNSHostName, $SystemType FROM Win32_ComputerSystem"));
 		assertFalse(WmiHelper.isValidWql("SELECT*FROM Win32_ComputerSystem"));
 		assertFalse(WmiHelper.isValidWql("select__PATH,DNSHostName,SystemType from Win32_ComputerSystem"));
@@ -45,20 +46,42 @@ public class WmiHelperTest {
 		assertFalse(WmiHelper.isValidWql("SELECT * FROM Win32_ComputerSystem ,  "));
 		assertFalse(WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   from    where   "));
 		assertFalse(WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   from    from   "));
-		assertFalse(WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   from  ,  Win32_ComputerSystem  "));
-		assertFalse(WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   from    Win32_ComputerSystem    Win32_ComputerSystem  "));
-		assertFalse(WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   where    Win32_ComputerSystem    from   Name = \"PC14\"  "));
-		assertFalse(WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   from  where  Win32_ComputerSystem    Name = \"PC14\"  "));
+		assertFalse(
+			WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   from  ,  Win32_ComputerSystem  ")
+		);
+		assertFalse(
+			WmiHelper.isValidWql(
+				"select    __PATH   ,    DNSHostName,   SystemType   from    Win32_ComputerSystem    Win32_ComputerSystem  "
+			)
+		);
+		assertFalse(
+			WmiHelper.isValidWql(
+				"select    __PATH   ,    DNSHostName,   SystemType   where    Win32_ComputerSystem    from   Name = \"PC14\"  "
+			)
+		);
+		assertFalse(
+			WmiHelper.isValidWql(
+				"select    __PATH   ,    DNSHostName,   SystemType   from  where  Win32_ComputerSystem    Name = \"PC14\"  "
+			)
+		);
 
 		assertTrue(WmiHelper.isValidWql("SELECT * FROM Win32_ComputerSystem"));
 		assertTrue(WmiHelper.isValidWql("      select    *     from     Win32_ComputerSystem    "));
 		assertTrue(WmiHelper.isValidWql("    SELECT    Manufacturer    FROM     Win32_ComputerSystem     "));
 		assertTrue(WmiHelper.isValidWql("SELECT __PATH,DNSHostName,SystemType FROM Win32_ComputerSystem"));
-		assertTrue(WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   from    Win32_ComputerSystem  "));
+		assertTrue(
+			WmiHelper.isValidWql("select    __PATH   ,    DNSHostName,   SystemType   from    Win32_ComputerSystem  ")
+		);
 		assertTrue(WmiHelper.isValidWql("select Model, Manufacturer from Win32_ComputerSystem where Name = \"PC14\""));
 		assertTrue(WmiHelper.isValidWql("SELECT * FROM Win32_Process WHERE CommandLine='bash select test 0'"));
-		assertTrue(WmiHelper.isValidWql("SELECT DriveInfo.Name,DriveInfo.NumberPaths,DriveInfo.SerialNumber FROM MPIO_DISK_INFO"));
-		assertTrue(WmiHelper.isValidWql("SELECT Active,InstanceName,Attributes.PortWWN,Attributes.PortSpeed,Attributes.PortWWN,Attributes.PortWWN,Attributes.PortType FROM MSFC_FibrePortHBAAttributes"));
+		assertTrue(
+			WmiHelper.isValidWql("SELECT DriveInfo.Name,DriveInfo.NumberPaths,DriveInfo.SerialNumber FROM MPIO_DISK_INFO")
+		);
+		assertTrue(
+			WmiHelper.isValidWql(
+				"SELECT Active,InstanceName,Attributes.PortWWN,Attributes.PortSpeed,Attributes.PortWWN,Attributes.PortWWN,Attributes.PortType FROM MSFC_FibrePortHBAAttributes"
+			)
+		);
 	}
 
 	@Test
@@ -71,12 +94,21 @@ public class WmiHelperTest {
 		result.add(row);
 		result.add(row);
 
-		assertEquals(Collections.emptyList(), WmiHelper.extractPropertiesFromResult(Collections.emptyList(), "SELECT * FROM test"));
-		assertEquals(Arrays.asList("a", "b"), WmiHelper.extractPropertiesFromResult(Collections.emptyList(), "SELECT A, B FROM test"));
+		assertEquals(
+			Collections.emptyList(),
+			WmiHelper.extractPropertiesFromResult(Collections.emptyList(), "SELECT * FROM test")
+		);
+		assertEquals(
+			Arrays.asList("a", "b"),
+			WmiHelper.extractPropertiesFromResult(Collections.emptyList(), "SELECT A, B FROM test")
+		);
 
 		assertEquals(Arrays.asList("A", "b", "C"), WmiHelper.extractPropertiesFromResult(result, "SELECT * FROM test"));
 		assertEquals(Arrays.asList("A", "b", "C"), WmiHelper.extractPropertiesFromResult(result, "SELECT a,b,c FROM test"));
-		assertEquals(Arrays.asList("A", "b", "C", "d"), WmiHelper.extractPropertiesFromResult(result, "SELECT a,b,c,d FROM test"));
+		assertEquals(
+			Arrays.asList("A", "b", "C", "d"),
+			WmiHelper.extractPropertiesFromResult(result, "SELECT a,b,c,d FROM test")
+		);
 		assertEquals(Arrays.asList("C"), WmiHelper.extractPropertiesFromResult(result, "SELECT c FROM test"));
 		assertEquals(Arrays.asList("A", "C", "d"), WmiHelper.extractPropertiesFromResult(result, "SELECT a,c,d FROM test"));
 		assertEquals(Arrays.asList("A", "b"), WmiHelper.extractPropertiesFromResult(result, "SELECT A, B FROM test"));

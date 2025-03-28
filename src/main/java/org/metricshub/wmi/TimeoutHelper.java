@@ -28,7 +28,7 @@ import java.util.concurrent.TimeoutException;
  */
 public class TimeoutHelper {
 
-	private TimeoutHelper() { }
+	private TimeoutHelper() {}
 
 	/**
 	 * Get the remaining time before timeout.
@@ -38,7 +38,8 @@ public class TimeoutHelper {
 	 * @return The remaining time
 	 * @throws TimeoutException if there's no time left
 	 */
-	public static long getRemainingTime(final long timeout, final long start, final String message) throws TimeoutException {
+	public static long getRemainingTime(final long timeout, final long start, final String message)
+		throws TimeoutException {
 		long remaining = start + timeout - Utils.getCurrentTimeMillis();
 		if (remaining < 0) {
 			throw new TimeoutException(message);
@@ -64,12 +65,7 @@ public class TimeoutHelper {
 	 *
 	 * @throws TimeoutException when times out
 	 */
-	public static void stagedSleep(
-			final long timeout,
-			final long start,
-			final String message
-	) throws TimeoutException {
-
+	public static void stagedSleep(final long timeout, final long start, final String message) throws TimeoutException {
 		// Check we still have some time on our hands
 		getRemainingTime(timeout, start, message);
 
@@ -91,7 +87,5 @@ public class TimeoutHelper {
 		} catch (InterruptedException e) {
 			throw new TimeoutException(message);
 		}
-
 	}
-
 }

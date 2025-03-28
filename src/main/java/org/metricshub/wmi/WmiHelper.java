@@ -20,16 +20,14 @@ package org.metricshub.wmi;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
-import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.metricshub.wmi.exceptions.WqlQuerySyntaxException;
 
 public abstract class WmiHelper {
-
 
 	/**
 	 * Private constructor, as this class cannot be instantiated (it's pure static)
@@ -42,8 +40,11 @@ public abstract class WmiHelper {
 	 * Pattern to detect a simple WQL select query.
 	 */
 	private static final Pattern WQL_SIMPLE_SELECT_PATTERN = Pattern.compile(
-			"^\\s*SELECT\\s+(\\*|(?!SELECT|FROM|WHERE)[a-z0-9._]+|((?!SELECT|FROM|WHERE)[a-z0-9._]+\\s*,\\s*)+((?!SELECT|FROM|WHERE)[a-z0-9._]+))\\s+FROM\\s+((?!WHERE|FROM)\\w+)\\s*(WHERE\\s+.*)?$",
-			Pattern.CASE_INSENSITIVE
+		"^\\s*SELECT\\s+(\\*|(?!SELECT|FROM|WHERE)[a-z0-9._]+" +
+		"|((?!SELECT|FROM|WHERE)[a-z0-9._]+" +
+		"\\s*,\\s*)+((?!SELECT|FROM|WHERE)[a-z0-9._]+))\\s+" +
+		"FROM\\s+((?!WHERE|FROM)\\w+)\\s*(WHERE\\s+.*)?$",
+		Pattern.CASE_INSENSITIVE
 	);
 
 	/**
@@ -65,13 +66,9 @@ public abstract class WmiHelper {
 	 * @param namespace The Namespace.
 	 * @return A string representing the Network resource.
 	 */
-	public static String createNetworkResource(
-			final String hostname,
-			final String namespace) {
+	public static String createNetworkResource(final String hostname, final String namespace) {
 		Utils.checkNonNull(namespace, "namespace");
-		return hostname == null || hostname.isEmpty() ?
-				namespace :
-				String.format("\\\\%s\\%s", hostname, namespace);
+		return hostname == null || hostname.isEmpty() ? namespace : String.format("\\\\%s\\%s", hostname, namespace);
 	}
 
 	/**
@@ -80,13 +77,19 @@ public abstract class WmiHelper {
 	 */
 	public static boolean isLocalNetworkResource(final String networkResource) {
 		Utils.checkNonNull(networkResource, "networkResource");
-		return !networkResource.startsWith("\\\\") ||
-				networkResource.startsWith("\\\\localhost\\") ||
-				networkResource.startsWith("\\\\127.0.0.1\\") ||
-				networkResource.startsWith("\\\\0:0:0:0:0:0:0:1\\") ||
-				networkResource.startsWith("\\\\::1\\") ||
-				networkResource.startsWith("\\\\0000:0000:0000:0000:0000:0000:0000:0001\\") ||
-				networkResource.toLowerCase().startsWith("\\\\" + Utils.getComputerName().toLowerCase() + "\\");
+		// @formatter:off
+		// CHECKSTYLE:OFF
+		return (
+			!networkResource.startsWith("\\\\") ||
+			networkResource.startsWith("\\\\localhost\\") ||
+			networkResource.startsWith("\\\\127.0.0.1\\") ||
+			networkResource.startsWith("\\\\0:0:0:0:0:0:0:1\\") ||
+			networkResource.startsWith("\\\\::1\\") ||
+			networkResource.startsWith("\\\\0000:0000:0000:0000:0000:0000:0000:0001\\") ||
+			networkResource.toLowerCase().startsWith("\\\\" + Utils.getComputerName().toLowerCase() + "\\")
+		);
+		// CHECKSTYLE:ON
+		// @formatter:on
 	}
 
 	/**
@@ -99,13 +102,11 @@ public abstract class WmiHelper {
 	 * @throws IllegalStateException if the specified WQL is invalid
 	 */
 	public static List<String> extractPropertiesFromResult(final List<Map<String, Object>> resultRows, final String wql) {
-
 		try {
 			return extractPropertiesFromResult(resultRows, WqlQuery.newInstance(wql));
 		} catch (WqlQuerySyntaxException e) {
 			throw new IllegalStateException(e);
 		}
-
 	}
 
 	/**
@@ -118,8 +119,10 @@ public abstract class WmiHelper {
 	 * @param wqlQuery The WQL query that was used (so we make sure to return the properties in the same order)
 	 * @return a list of property names
 	 */
-	public static List<String> extractPropertiesFromResult(final List<Map<String, Object>> resultRows, final WqlQuery wqlQuery) {
-
+	public static List<String> extractPropertiesFromResult(
+		final List<Map<String, Object>> resultRows,
+		final WqlQuery wqlQuery
+	) {
 		// If resultRows is empty, we won't be able to retrieve the actual property names
 		// with the correct case. So, we simply return the list of specified properties in the
 		// WQL query
@@ -140,12 +143,13 @@ public abstract class WmiHelper {
 		// Create a new list based on queryPropertyArray (with its order), but with the values
 		// from resultPropertyArray
 		final List<String> queryProperties = wqlQuery.getSelectedProperties();
-		final Map<String, String> resultProperties = Arrays.asList(resultPropertyArray).stream()
-				.collect(Collectors.toMap(String::toLowerCase, property -> property));
-		return queryProperties.stream()
-				.map(property -> resultProperties.getOrDefault(property.toLowerCase(), property))
-				.collect(Collectors.toList());
-
+		final Map<String, String> resultProperties = Arrays
+			.asList(resultPropertyArray)
+			.stream()
+			.collect(Collectors.toMap(String::toLowerCase, property -> property));
+		return queryProperties
+			.stream()
+			.map(property -> resultProperties.getOrDefault(property.toLowerCase(), property))
+			.collect(Collectors.toList());
 	}
-
 }

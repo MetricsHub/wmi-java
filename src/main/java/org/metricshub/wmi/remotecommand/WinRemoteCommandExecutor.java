@@ -43,13 +43,13 @@ public class WinRemoteCommandExecutor {
 	private final float executionTime;
 	private final String stdout;
 	private final String stderr;
-	private final int statusCode;
+	private final long statusCode;
 
 	private WinRemoteCommandExecutor(
 		final String stdout,
 		final String stderr,
 		final float executionTime,
-		final int statusCode
+		final long statusCode
 	) {
 		this.stdout = stdout;
 		this.stderr = stderr;
@@ -85,7 +85,7 @@ public class WinRemoteCommandExecutor {
 	 * Get the return status code of the command
 	 * @return
 	 */
-	public int getStatusCode() {
+	public long getStatusCode() {
 		return statusCode;
 	}
 
@@ -172,7 +172,7 @@ public class WinRemoteCommandExecutor {
 
 			// Create a process on the remote machine and execute the cmd
 			final long startCommand = Utils.getCurrentTimeMillis();
-			final int statusCode = RemoteProcess.executeCommand(
+			final long statusCode = RemoteProcess.executeCommand(
 				redirectedCommand,
 				hostname,
 				username,

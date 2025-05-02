@@ -24,7 +24,7 @@ public class ProcessNotFoundException extends Exception {
 
 	private static final long serialVersionUID = 1L;
 
-	public ProcessNotFoundException(int pid) {
+	public ProcessNotFoundException(long pid) {
 		super("Could not find process with pid " + pid);
 	}
 

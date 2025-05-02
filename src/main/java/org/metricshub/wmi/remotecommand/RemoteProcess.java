@@ -54,15 +54,15 @@ public class RemoteProcess {
 	/**
 	 * Map of the possible (and known) ReturnValue of the Win32_Process methods
 	 */
-	private static final Map<Integer, String> METHOD_RETURNVALUE_MAP;
+	private static final Map<Long, String> METHOD_RETURNVALUE_MAP;
 
 	static {
-		final Map<Integer, String> map = new HashMap<>();
-		map.put(2, "Access denied");
-		map.put(3, "Insufficient privilege");
-		map.put(8, "Unknown failure");
-		map.put(9, "Path not found");
-		map.put(21, "Invalid parameter");
+		final Map<Long, String> map = new HashMap<>();
+		map.put(2L, "Access denied");
+		map.put(3L, "Insufficient privilege");
+		map.put(8L, "Unknown failure");
+		map.put(9L, "Path not found");
+		map.put(21L, "Invalid parameter");
 		METHOD_RETURNVALUE_MAP = Collections.unmodifiableMap(map);
 	}
 
@@ -78,7 +78,7 @@ public class RemoteProcess {
 	 * @throws WmiComException  For any problem encountered with JNA
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
-	public static int executeCommand(
+	public static long executeCommand(
 		final String command,
 		final String hostname,
 		final String username,
@@ -107,8 +107,8 @@ public class RemoteProcess {
 			);
 
 			// Extract ProcessId from the result
-			final Integer processId = (Integer) createResult.get("ProcessId");
-			if (processId == null || processId.intValue() < 1) {
+			final Long processId = (Long) createResult.get("ProcessId");
+			if (processId == null || processId.longValue() < 1) {
 				throw new WmiComException("Could not spawn the process: No ProcessId was returned by Win32_Process::Create");
 			}
 
@@ -130,7 +130,7 @@ public class RemoteProcess {
 				throw e;
 			}
 
-			return (Integer) createResult.get("ReturnValue");
+			return (Long) createResult.get("ReturnValue");
 		}
 	}
 
@@ -145,7 +145,7 @@ public class RemoteProcess {
 	 * @throws WmiComException  For any problem encountered with JNA
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
-	static boolean existProcess(final WmiWbemServices wbemServices, final int pid, final long timeout)
+	static boolean existProcess(final WmiWbemServices wbemServices, final long pid, final long timeout)
 		throws WmiComException, TimeoutException {
 		try {
 			return !wbemServices
@@ -165,13 +165,16 @@ public class RemoteProcess {
 	 * @throws WmiComException For any problem encountered with JNA.
 	 * @throws TimeoutException To notify userName of timeout.
 	 */
-	private static void killProcessWithChildren(final WmiWbemServices wmiWbemServices, final int pid, final long timeout)
-		throws WmiComException, TimeoutException {
+	private static void killProcessWithChildren(
+		final WmiWbemServices wmiWbemServices,
+		final long pid,
+		final long timeout
+	) throws WmiComException, TimeoutException {
 		// First, get the children
 		try {
 			final long start = Utils.getCurrentTimeMillis();
 
-			final List<Integer> pidToKillList = new ArrayList<>();
+			final List<Long> pidToKillList = new ArrayList<>();
 			pidToKillList.add(pid);
 			pidToKillList.addAll(
 				wmiWbemServices
@@ -179,12 +182,12 @@ public class RemoteProcess {
 					.stream()
 					.map(row -> (String) row.get("Handle"))
 					.filter(Objects::nonNull)
-					.map(Integer::parseInt)
+					.map(Long::parseLong)
 					.collect(Collectors.toList())
 			);
 
 			// Kill
-			for (final int pidToKill : pidToKillList) {
+			for (final long pidToKill : pidToKillList) {
 				if (TimeoutHelper.getRemainingTime(timeout, start, "No time left to kill the process") < 0) {
 					throw new TimeoutException("Timeout while killing remaining processes");
 				}
@@ -206,7 +209,7 @@ public class RemoteProcess {
 	 * @param pid The process Id.
 	 * @throws WmiComException For any problem encountered with JNA.
 	 */
-	private static void killProcess(final WmiWbemServices wmiWbemServices, final int pid)
+	private static void killProcess(final WmiWbemServices wmiWbemServices, final long pid)
 		throws WmiComException, ProcessNotFoundException {
 		// Call the Terminate method of the Win32_Process class
 		// Reason is set to 1, just so that process exit code is non-zero, to indicate a failure
@@ -229,13 +232,13 @@ public class RemoteProcess {
 		}
 
 		// Check ReturnValue
-		final Integer returnCode = (Integer) terminateResult.get("ReturnValue");
-		if (returnCode == null || returnCode.intValue() != 0) {
+		final Long returnCode = (Long) terminateResult.get("ReturnValue");
+		if (returnCode == null || returnCode.longValue() != 0) {
 			throw new WmiComException("Could not terminate the process (%d): %s", pid, getReturnErrorMessage(returnCode));
 		}
 	}
 
-	private static String getReturnErrorMessage(final int returnCode) {
+	private static String getReturnErrorMessage(final long returnCode) {
 		return METHOD_RETURNVALUE_MAP.getOrDefault(returnCode, String.format("Unknown return code (%d)", returnCode));
 	}
 }

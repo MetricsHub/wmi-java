@@ -79,6 +79,20 @@ class WmiCimTypeHandlerTest {
 	}
 
 	@Test
+	void testConvertCIM_UINT32() {
+		long testLong = 2 << 33;
+		ByReference r = new ByReference(new VARIANT(testLong));
+		assertEquals(
+			Collections.singletonMap("uint32Property", testLong),
+			WmiCimTypeHandler.convert(
+				r,
+				Wbemcli.CIM_UINT32,
+				new AbstractMap.SimpleEntry<String, Set<String>>("uint32Property", Collections.emptySet())
+			)
+		);
+	}
+
+	@Test
 	void testConvertCimObject() {
 		final ByReference value = Mockito.mock(ByReference.class);
 

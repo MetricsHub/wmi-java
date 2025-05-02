@@ -68,7 +68,7 @@ public class WmiCimTypeHandler {
 
 		map.put(Wbemcli.CIM_UINT8, ByReference::byteValue);
 		map.put(Wbemcli.CIM_UINT16, ByReference::intValue);
-		map.put(Wbemcli.CIM_UINT32, ByReference::intValue);
+		map.put(Wbemcli.CIM_UINT32, ByReference::longValue);
 		map.put(Wbemcli.CIM_UINT64, ByReference::stringValue);
 		map.put(Wbemcli.CIM_SINT8, ByReference::shortValue);
 		map.put(Wbemcli.CIM_SINT16, ByReference::shortValue);

@@ -80,16 +80,34 @@ class WmiCimTypeHandlerTest {
 
 	@Test
 	void testConvertCIM_UINT32() {
-		long testLong = 2 << 33;
-		ByReference r = new ByReference(new VARIANT(testLong));
-		assertEquals(
-			Collections.singletonMap("uint32Property", testLong),
-			WmiCimTypeHandler.convert(
-				r,
-				Wbemcli.CIM_UINT32,
-				new AbstractMap.SimpleEntry<String, Set<String>>("uint32Property", Collections.emptySet())
-			)
-		);
+		// Make sure CIM_UINT32 are returned as long
+		{
+			long testLong = 1L << (31 + 12345); // a value between 2^31 and 2^32 - 1
+			ByReference r = new ByReference(new VARIANT(testLong));
+			assertEquals(
+				Collections.singletonMap("uint32Property", testLong),
+				WmiCimTypeHandler.convert(
+					r,
+					Wbemcli.CIM_UINT32,
+					new AbstractMap.SimpleEntry<String, Set<String>>("uint32Property", Collections.emptySet())
+				)
+			);
+		}
+
+		// Test the special case where CIM_UINT32 is actually stored as... a signed integer!
+		// A positive long must be returned
+		{
+			// -1 == 2^32 - 1
+			ByReference r = new ByReference(new VARIANT(-1));
+			assertEquals(
+				Collections.singletonMap("uint32Property", (1L << 32) - 1),
+				WmiCimTypeHandler.convert(
+					r,
+					Wbemcli.CIM_UINT32,
+					new AbstractMap.SimpleEntry<String, Set<String>>("uint32Property", Collections.emptySet())
+				)
+			);
+		}
 	}
 
 	@Test

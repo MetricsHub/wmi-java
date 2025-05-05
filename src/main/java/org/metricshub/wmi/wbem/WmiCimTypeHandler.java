@@ -68,7 +68,7 @@ public class WmiCimTypeHandler {
 
 		map.put(Wbemcli.CIM_UINT8, ByReference::byteValue);
 		map.put(Wbemcli.CIM_UINT16, ByReference::intValue);
-		map.put(Wbemcli.CIM_UINT32, ByReference::longValue);
+		map.put(Wbemcli.CIM_UINT32, WmiCimTypeHandler::convertCimUint32);
 		map.put(Wbemcli.CIM_UINT64, ByReference::stringValue);
 		map.put(Wbemcli.CIM_SINT8, ByReference::shortValue);
 		map.put(Wbemcli.CIM_SINT16, ByReference::shortValue);
@@ -88,6 +88,22 @@ public class WmiCimTypeHandler {
 	}
 
 	private static final String CIM_OBJECT_LABEL = "CIM_OBJECT";
+
+	/**
+	 * Convert a ByReference value holding a CIM_UINT32 (i.e. an unsigned int on 32 bits).
+	 * <p>
+	 * Unfortunately, there seems to be a bug in either JNA or Wbemcli library which stores
+	 * CIM_UINT32 values as VT_I4 (signed integer). As a result, it's converted to a signed
+	 * integer, which is wrong.
+	 * <p>
+	 * Good news, since we know the CIM type, we can enforce reconverting to unsigned!
+	 * <p>
+	 * @param cimUint32Value a CIM_UINT32 value... potentially (and wrongly) stored as a VT_I4
+	 * @return always a positive long
+	 */
+	private static long convertCimUint32(final ByReference cimUint32Value) {
+		return Integer.toUnsignedLong(cimUint32Value.intValue());
+	}
 
 	/**
 	 * Convert a ByReference value holding a CIM_DATETIME (i.e. a string in the form

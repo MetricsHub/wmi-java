@@ -831,6 +831,16 @@ public class WmiWbemServices implements WindowsRemoteExecutor {
 			if (wbemLocator != null) {
 				wbemLocator.Release();
 			}
+
+			// Clear password from memory to prevent memory leaks and security issues
+			if (password != null) {
+				java.util.Arrays.fill(password, '\0');
+			}
+
+			// Clear password from CoAuthIdentity native memory
+			if (authIdent != null) {
+				authIdent.clearPassword();
+			}
 		}
 	}
 

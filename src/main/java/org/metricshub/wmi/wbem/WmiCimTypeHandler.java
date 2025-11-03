@@ -161,74 +161,75 @@ public class WmiCimTypeHandler {
 		}
 
 		safeArray.lock();
+		try {
+			// Get the properties of the array
+			final int lowerBound = safeArray.getLBound(0);
+			final int length = safeArray.getUBound(0) - lowerBound + 1;
 
-		// Get the properties of the array
-		final int lowerBound = safeArray.getLBound(0);
-		final int length = safeArray.getUBound(0) - lowerBound + 1;
-
-		// Convert to a Java array
-		final Object[] resultArray = new Object[length];
-		for (int i = 0; i < length; i++) {
-			resultArray[i] = safeArray.getElement(lowerBound + i);
-		}
-
-		safeArray.unlock();
-
-		// Simplified conversion of the values, since SAFEARRAY.getElement()
-		// did most of the job already, except for CIM_REFERENCE and CIM_DATETIME
-		if (cimType == Wbemcli.CIM_REFERENCE) {
-			return Collections.singletonMap(
-				property.getKey(),
-				Stream.of(resultArray).map(String.class::cast).map(WmiCimTypeHandler::convertCimReference).toArray()
-			);
-		}
-		if (cimType == Wbemcli.CIM_DATETIME) {
-			return Collections.singletonMap(
-				property.getKey(),
-				Stream.of(resultArray).map(String.class::cast).map(Utils::convertCimDateTime).toArray()
-			);
-		}
-		if (cimType == Wbemcli.CIM_OBJECT) {
-			if (property.getValue().isEmpty()) {
-				return Collections.singletonMap(property.getKey(), new String[] { CIM_OBJECT_LABEL });
+			// Convert to a Java array
+			final Object[] resultArray = new Object[length];
+			for (int i = 0; i < length; i++) {
+				resultArray[i] = safeArray.getElement(lowerBound + i);
 			}
 
-			final Map<String, List<Object>> resulMap = new HashMap<>();
-
-			for (final Object resultValue : resultArray) {
-				final Optional<IWbemClassObject> maybeClassObject = getUnknownWbemClassObject(resultValue);
-				if (!maybeClassObject.isPresent()) {
-					continue;
+			// Simplified conversion of the values, since SAFEARRAY.getElement()
+			// did most of the job already, except for CIM_REFERENCE and CIM_DATETIME
+			if (cimType == Wbemcli.CIM_REFERENCE) {
+				return Collections.singletonMap(
+					property.getKey(),
+					Stream.of(resultArray).map(String.class::cast).map(WmiCimTypeHandler::convertCimReference).toArray()
+				);
+			}
+			if (cimType == Wbemcli.CIM_DATETIME) {
+				return Collections.singletonMap(
+					property.getKey(),
+					Stream.of(resultArray).map(String.class::cast).map(Utils::convertCimDateTime).toArray()
+				);
+			}
+			if (cimType == Wbemcli.CIM_OBJECT) {
+				if (property.getValue().isEmpty()) {
+					return Collections.singletonMap(property.getKey(), new String[] { CIM_OBJECT_LABEL });
 				}
 
-				final Map<String, String> subPropertiesNames = getSubPropertiesNamesFromClass(maybeClassObject.get());
+				final Map<String, List<Object>> resulMap = new HashMap<>();
 
-				try {
-					property
-						.getValue()
-						.stream()
-						.map(subProperty -> subPropertiesNames.get(subProperty.toLowerCase()))
-						.forEach(subProperty ->
-							resulMap
-								.computeIfAbsent(buildCimObjectSubPropertyName(property, subProperty), key -> new ArrayList<>())
-								.add(
-									getPropertyValue(
-										maybeClassObject.get(),
-										new AbstractMap.SimpleEntry<String, Set<String>>(subProperty, Collections.emptySet())
+				for (final Object resultValue : resultArray) {
+					final Optional<IWbemClassObject> maybeClassObject = getUnknownWbemClassObject(resultValue);
+					if (!maybeClassObject.isPresent()) {
+						continue;
+					}
+
+					final Map<String, String> subPropertiesNames = getSubPropertiesNamesFromClass(maybeClassObject.get());
+
+					try {
+						property
+							.getValue()
+							.stream()
+							.map(subProperty -> subPropertiesNames.get(subProperty.toLowerCase()))
+							.forEach(subProperty ->
+								resulMap
+									.computeIfAbsent(buildCimObjectSubPropertyName(property, subProperty), key -> new ArrayList<>())
+									.add(
+										getPropertyValue(
+											maybeClassObject.get(),
+											new AbstractMap.SimpleEntry<String, Set<String>>(subProperty, Collections.emptySet())
+										)
+											.get(subProperty)
 									)
-										.get(subProperty)
-								)
-						);
-				} finally {
-					maybeClassObject.get().Release();
+							);
+					} finally {
+						maybeClassObject.get().Release();
+					}
 				}
+
+				return resulMap.entrySet().stream().collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().toArray()));
 			}
 
-			return resulMap.entrySet().stream().collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().toArray()));
+			// Default: return the array straight away
+			return Collections.singletonMap(property.getKey(), resultArray);
+		} finally {
+			safeArray.unlock();
 		}
-
-		// Default: return the array straight away
-		return Collections.singletonMap(property.getKey(), resultArray);
 	}
 
 	/**

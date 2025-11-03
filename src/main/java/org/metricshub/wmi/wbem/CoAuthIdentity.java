@@ -94,4 +94,26 @@ public class CoAuthIdentity extends Structure {
 		// Unicode
 		this.flags = 0x2;
 	}
+
+	/**
+	 * Clears sensitive password data from native memory.
+	 * This should be called when the CoAuthIdentity is no longer needed
+	 * to prevent password data from persisting in memory.
+	 */
+	public void clearPassword() {
+		if (password != null && passwordLength > 0) {
+			// Clear the password memory by writing zeros to each wide character
+			final long sizeBytes = (passwordLength + 1L) * Native.WCHAR_SIZE;
+			password.write(0, new byte[(int) sizeBytes], 0, (int) sizeBytes);
+		}
+	}
+
+	@Override
+	protected void finalize() throws Throwable {
+		try {
+			clearPassword();
+		} finally {
+			super.finalize();
+		}
+	}
 }

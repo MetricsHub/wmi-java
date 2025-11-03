@@ -74,6 +74,9 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	/** How many "clients" are using this instance */
 	private final AtomicInteger useCount = new AtomicInteger(1);
 
+	/** Last access time for cache cleanup */
+	private volatile long lastAccessTime = System.currentTimeMillis();
+
 	/**
 	 * Constructor of WinTempShare
 	 * <p>
@@ -146,11 +149,13 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 									password == null ? null : String.valueOf(password)
 								);
 
-							return new WinTempShare(
+							final WinTempShare newShare = new WinTempShare(
 								(WmiWbemServices) share.getWindowsRemoteExecutor(),
 								share.getUncSharePath(),
 								share.getRemotePath()
 							);
+							newShare.updateLastAccessTime();
+							return newShare;
 						} catch (final RuntimeException e) {
 							if (wmiWbemServices != null) {
 								wmiWbemServices.close();
@@ -170,6 +175,8 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 						synchronized (winTempShare) {
 							// Increment the number of callers
 							winTempShare.incrementUseCount();
+							// Update last access time
+							winTempShare.updateLastAccessTime();
 
 							// And simply return the same reference (so that the map is not changed)
 							return winTempShare;
@@ -203,6 +210,51 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 			// Disconnect from the share
 			getWindowsScriptHostNetwork().removeNetworkDrive(getUncSharePath(), true, false);
 		}
+	}
+
+	/**
+	 * Updates the last access time for this share instance.
+	 * Used for cache cleanup to identify stale entries.
+	 */
+	void updateLastAccessTime() {
+		this.lastAccessTime = System.currentTimeMillis();
+	}
+
+	/**
+	 * Cleanup stale entries from the CONNECTIONS_CACHE.
+	 * Removes entries that haven't been accessed in the specified timeout period
+	 * and have a useCount of 0 or are closed.
+	 *
+	 * @param timeoutMillis Maximum time in milliseconds since last access before considering an entry stale
+	 */
+	public static void cleanupStaleEntries(final long timeoutMillis) {
+		final long currentTime = System.currentTimeMillis();
+		CONNECTIONS_CACHE.entrySet().removeIf(entry -> {
+			final WinTempShare share = entry.getValue();
+			// Remove if stale (not accessed recently) and no active users
+			return (currentTime - share.lastAccessTime > timeoutMillis) && share.useCount.get() <= 0;
+		});
+	}
+
+	/**
+	 * Clear all entries from the CONNECTIONS_CACHE.
+	 * This should only be used in exceptional circumstances (e.g., shutdown).
+	 */
+	public static void clearCache() {
+		CONNECTIONS_CACHE.values().forEach(share -> {
+			try {
+				if (share.useCount.get() > 0) {
+					// Force close even if useCount > 0
+					while (share.useCount.get() > 0) {
+						share.useCount.decrementAndGet();
+					}
+					share.close();
+				}
+			} catch (final Exception e) {
+				// Ignore exceptions during cleanup
+			}
+		});
+		CONNECTIONS_CACHE.clear();
 	}
 
 	/**

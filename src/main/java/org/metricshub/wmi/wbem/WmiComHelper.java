@@ -116,6 +116,8 @@ public class WmiComHelper {
 
 		Ole32.INSTANCE.CoUninitialize();
 		comLibraryInitialized.set(false);
+		// Remove ThreadLocal entry to prevent memory leak in thread pools
+		comLibraryInitialized.remove();
 	}
 
 	/**

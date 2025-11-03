@@ -104,14 +104,34 @@ public class CoAuthIdentity extends Structure {
 		if (password != null && passwordLength > 0) {
 			// Clear the password memory by writing zeros to each wide character
 			final long sizeBytes = (passwordLength + 1L) * Native.WCHAR_SIZE;
-			password.write(0, new byte[(int) sizeBytes], 0, (int) sizeBytes);
+			password.clear(sizeBytes);
+		}
+	}
+
+	public void dispose() {
+		clearPassword();
+		clearDomain();
+		clearUser();
+	}
+
+	private void clearDomain() {
+		if (domain != null && domainLength > 0) {
+			final long sizeBytes = (domainLength + 1L) * Native.WCHAR_SIZE;
+			domain.clear(sizeBytes);
+		}
+	}
+
+	private void clearUser() {
+		if (user != null && userLength > 0) {
+			final long sizeBytes = (userLength + 1L) * Native.WCHAR_SIZE;
+			user.clear(sizeBytes);
 		}
 	}
 
 	@Override
 	protected void finalize() throws Throwable {
 		try {
-			clearPassword();
+			dispose();
 		} finally {
 			super.finalize();
 		}

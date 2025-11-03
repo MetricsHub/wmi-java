@@ -408,7 +408,9 @@ public class WmiCimTypeHandler {
 		OleAuto.INSTANCE.VariantInit(value);
 
 		try {
-			final HRESULT hResult = wbemClassObject.Get(property.getKey(), 0, value, pType, new IntByReference());
+			// Pass null for pFlavor to avoid an unnecessary IntByReference allocation
+			// We do not use the flavor information in downstream processing.
+			final HRESULT hResult = wbemClassObject.Get(property.getKey(), 0, value, pType, null);
 			if (COMUtils.FAILED(hResult)) {
 				return Collections.singletonMap(property.getKey(), null);
 			}

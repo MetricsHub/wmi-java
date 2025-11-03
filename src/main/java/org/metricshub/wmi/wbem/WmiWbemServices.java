@@ -839,7 +839,7 @@ public class WmiWbemServices implements WindowsRemoteExecutor {
 
 			// Clear password from CoAuthIdentity native memory
 			if (authIdent != null) {
-				authIdent.clearPassword();
+				authIdent.dispose();
 			}
 		}
 	}
@@ -1039,13 +1039,16 @@ public class WmiWbemServices implements WindowsRemoteExecutor {
 			setProxySecurity(wbemClassObjectQueryResult.getPointer(), authIdent);
 		}
 
+		// Reuse the returned count container to avoid per-iteration allocation
+		final IntByReference returnedCountRef = new IntByReference(0);
+
 		while (wbemClassObjectQueryResult.getPointer() != Pointer.NULL) {
 			// Get the next record
 			final HRESULT hResult = wbemClassObjectQueryResult.Next(
 				(int) timeout,
 				pointersOnWbemClassObject.length,
 				pointersOnWbemClassObject,
-				new IntByReference(0)
+				returnedCountRef
 			);
 
 			// Any problem?

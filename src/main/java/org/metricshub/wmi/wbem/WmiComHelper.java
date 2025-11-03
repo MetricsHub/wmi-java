@@ -26,6 +26,7 @@ import com.sun.jna.platform.win32.COM.COMUtils;
 import com.sun.jna.platform.win32.Ole32;
 import com.sun.jna.platform.win32.WinError;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
+import java.util.concurrent.ConcurrentHashMap;
 import org.metricshub.wmi.exceptions.WmiComException;
 
 /**
@@ -143,9 +144,17 @@ public class WmiComHelper {
 		final Class<?> returnType
 	) {
 		final Pointer vptr = contextPointer.getPointer(0);
-		final com.sun.jna.Function func = com.sun.jna.Function.getFunction(
-			vptr.getPointer(vtableId * Native.POINTER_SIZE * 1L)
+		final long functionAddress = Pointer.nativeValue(vptr.getPointer(vtableId * Native.POINTER_SIZE * 1L));
+		final com.sun.jna.Function func = FUNCTION_CACHE.computeIfAbsent(
+			functionAddress,
+			addr -> com.sun.jna.Function.getFunction(new Pointer(addr))
 		);
 		return func.invoke(returnType, args);
 	}
+
+	/**
+	 * Cache of resolved COM vtable function pointers to JNA Functions to avoid repeated
+	 * WeakReference-heavy allocations inside JNA for identical function addresses.
+	 */
+	private static final ConcurrentHashMap<Long, com.sun.jna.Function> FUNCTION_CACHE = new ConcurrentHashMap<>();
 }

@@ -222,7 +222,10 @@ public class WmiCimTypeHandler {
 					}
 				}
 
-				return resulMap.entrySet().stream().collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().toArray()));
+				return resulMap
+					.entrySet()
+					.stream()
+					.collect(Collectors.toMap(Entry::getKey, entry -> entry.getValue().toArray()));
 			}
 
 			// Default: return the array straight away

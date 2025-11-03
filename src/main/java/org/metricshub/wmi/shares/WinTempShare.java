@@ -229,11 +229,13 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	 */
 	public static void cleanupStaleEntries(final long timeoutMillis) {
 		final long currentTime = System.currentTimeMillis();
-		CONNECTIONS_CACHE.entrySet().removeIf(entry -> {
-			final WinTempShare share = entry.getValue();
-			// Remove if stale (not accessed recently) and no active users
-			return (currentTime - share.lastAccessTime > timeoutMillis) && share.useCount.get() <= 0;
-		});
+		CONNECTIONS_CACHE
+			.entrySet()
+			.removeIf(entry -> {
+				final WinTempShare share = entry.getValue();
+				// Remove if stale (not accessed recently) and no active users
+				return (currentTime - share.lastAccessTime > timeoutMillis) && share.useCount.get() <= 0;
+			});
 	}
 
 	/**
@@ -241,19 +243,21 @@ public class WinTempShare extends WindowsTempShare implements AutoCloseable {
 	 * This should only be used in exceptional circumstances (e.g., shutdown).
 	 */
 	public static void clearCache() {
-		CONNECTIONS_CACHE.values().forEach(share -> {
-			try {
-				if (share.useCount.get() > 0) {
-					// Force close even if useCount > 0
-					while (share.useCount.get() > 0) {
-						share.useCount.decrementAndGet();
+		CONNECTIONS_CACHE
+			.values()
+			.forEach(share -> {
+				try {
+					if (share.useCount.get() > 0) {
+						// Force close even if useCount > 0
+						while (share.useCount.get() > 0) {
+							share.useCount.decrementAndGet();
+						}
+						share.close();
 					}
-					share.close();
+				} catch (final Exception e) {
+					// Ignore exceptions during cleanup
 				}
-			} catch (final Exception e) {
-				// Ignore exceptions during cleanup
-			}
-		});
+			});
 		CONNECTIONS_CACHE.clear();
 	}
 

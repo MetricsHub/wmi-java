@@ -78,7 +78,8 @@ public class WmiStringConverter {
 	 * Convert the specified value/object to a string:
 	 * <ul>
 	 * <li>OffsetDateTime: to number of seconds since Epoch, or standard English date/time
-	 * <li>Array: items separated with specified <em>arraySeparator</em>
+	 * <li>Array: items joined with the specified <em>arraySeparator</em>, which is removed from
+	 * each item (<code>a|b</code>, <code>a</code> for a single item, an empty string for an empty array)
 	 * <li>null: empty string
 	 * <li>Boolean: True or False
 	 * <li>Anything else: using <code>String.valueOf()</code>
@@ -96,7 +97,7 @@ public class WmiStringConverter {
 				.of((Object[]) value)
 				.map(this::convert)
 				.map(item -> item.replace(arraySeparator, Utils.EMPTY))
-				.collect(Collectors.joining(arraySeparator, Utils.EMPTY, arraySeparator));
+				.collect(Collectors.joining(arraySeparator));
 		}
 
 		if (value instanceof String) {

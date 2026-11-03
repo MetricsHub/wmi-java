@@ -15,6 +15,7 @@ import static org.mockito.Mockito.mockStatic;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,26 @@ class UtilsTest {
 
 		final OffsetDateTime offsetDateTime = OffsetDateTime.of(1975, 3, 24, 19, 30, 00, 0, ZoneOffset.ofHours(1));
 		assertEquals(offsetDateTime, Utils.convertCimDateTime("19750324193000.000000+060"));
+	}
+
+	@Test
+	void testConvertCimDateTimeOrInterval() {
+		assertNull(Utils.convertCimDateTimeOrInterval(null));
+
+		// Timestamps are unchanged
+		final OffsetDateTime offsetDateTime = OffsetDateTime.of(1975, 3, 24, 19, 30, 00, 0, ZoneOffset.ofHours(1));
+		assertEquals(offsetDateTime, Utils.convertCimDateTimeOrInterval("19750324193000.000000+060"));
+		assertThrows(IllegalArgumentException.class, () -> Utils.convertCimDateTimeOrInterval("20101208134410.000000"));
+
+		// Intervals: ddddddddHHMMSS.mmmmmm:000
+		assertEquals(
+			Duration.ofDays(1485).plusHours(5).plusMinutes(1).plusSeconds(6),
+			Utils.convertCimDateTimeOrInterval("00001485050106.000000:000")
+		);
+		assertEquals(Duration.ZERO, Utils.convertCimDateTimeOrInterval("00000000000000.000000:000"));
+		assertEquals(Duration.ofSeconds(59), Utils.convertCimDateTimeOrInterval("00000000000059.999999:000"));
+		assertEquals(Duration.ofDays(99999999), Utils.convertCimDateTimeOrInterval("99999999000000.000000:000"));
+		assertThrows(IllegalArgumentException.class, () -> Utils.convertCimDateTimeOrInterval("0000148505010.000000:000"));
 	}
 
 	@Test

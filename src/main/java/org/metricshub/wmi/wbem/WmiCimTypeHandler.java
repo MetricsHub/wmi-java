@@ -32,7 +32,6 @@ import com.sun.jna.platform.win32.Variant.VARIANT.ByReference;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
-import java.time.OffsetDateTime;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -107,12 +106,13 @@ public class WmiCimTypeHandler {
 
 	/**
 	 * Convert a ByReference value holding a CIM_DATETIME (i.e. a string in the form
-	 * of <code>yyyymmddHHMMSS.mmmmmmsUUU</code>) to an OffsetDateTime object
+	 * of <code>yyyymmddHHMMSS.mmmmmmsUUU</code>, or <code>ddddddddHHMMSS.mmmmmm:000</code>
+	 * for an interval) to an OffsetDateTime or a Duration object
 	 * @param value ByReference value with a CIM_DATETIME string
-	 * @return OffsetDateTime instance
+	 * @return OffsetDateTime instance, or Duration instance for an interval
 	 */
-	static OffsetDateTime convertCimDateTime(final ByReference value) {
-		return Utils.convertCimDateTime(value.stringValue());
+	static Object convertCimDateTime(final ByReference value) {
+		return Utils.convertCimDateTimeOrInterval(value.stringValue());
 	}
 
 	/**
@@ -185,7 +185,7 @@ public class WmiCimTypeHandler {
 		if (cimType == Wbemcli.CIM_DATETIME) {
 			return Collections.singletonMap(
 				property.getKey(),
-				Stream.of(resultArray).map(String.class::cast).map(Utils::convertCimDateTime).toArray()
+				Stream.of(resultArray).map(String.class::cast).map(Utils::convertCimDateTimeOrInterval).toArray()
 			);
 		}
 		if (cimType == Wbemcli.CIM_OBJECT) {

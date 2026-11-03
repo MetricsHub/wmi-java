@@ -20,6 +20,7 @@ package org.metricshub.wmi;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -78,6 +79,7 @@ public class WmiStringConverter {
 	 * Convert the specified value/object to a string:
 	 * <ul>
 	 * <li>OffsetDateTime: to number of seconds since Epoch, or standard English date/time
+	 * <li>Duration (CIM_DATETIME interval): to number of seconds
 	 * <li>Array: items joined with the specified <em>arraySeparator</em>, which is removed from
 	 * each item (<code>a|b</code>, <code>a</code> for a single item, an empty string for an empty array)
 	 * <li>null: empty string
@@ -108,6 +110,8 @@ public class WmiStringConverter {
 			return epoch
 				? String.valueOf(((OffsetDateTime) value).toEpochSecond())
 				: ((OffsetDateTime) value).format(CSV_US_DATE_TIME_FORMATTER);
+		} else if (value instanceof Duration) {
+			return String.valueOf(((Duration) value).getSeconds());
 		} else {
 			return String.valueOf(value);
 		}

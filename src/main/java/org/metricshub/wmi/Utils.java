@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -72,6 +73,20 @@ public class Utils {
 	 */
 	private static final Pattern CIM_DATETIME_PATTERN = Pattern.compile(
 		"^([0-9]{14})(?:\\.([0-9]{3,6}))?([+-][0-9]{3})$"
+	);
+
+	/**
+	 * Regex that matches with a CIM_DATETIME string holding an interval
+	 * (<code>ddddddddHHMMSS.mmmmmm:000</code>)
+	 * <p>
+	 * <ul>
+	 * <li>group(1): days
+	 * <li>group(2): hours
+	 * <li>group(3): minutes
+	 * <li>group(4): seconds
+	 */
+	private static final Pattern CIM_INTERVAL_PATTERN = Pattern.compile(
+		"^([0-9]{8})([0-9]{2})([0-9]{2})([0-9]{2})(?:\\.[0-9]{3,6})?:000$"
 	);
 
 	/**
@@ -161,6 +176,31 @@ public class Utils {
 		final ZoneOffset offset = ZoneOffset.ofTotalSeconds(secondsOffset);
 
 		return OffsetDateTime.of(localDateTime, offset);
+	}
+
+	/**
+	 * Convert a String holding a CIM_DATETIME, which is either a timestamp
+	 * (<code>yyyymmddHHMMSS.mmmmmmsUUU</code>) or an interval
+	 * (<code>ddddddddHHMMSS.mmmmmm:000</code>)
+	 * @param stringValue String value with a CIM_DATETIME
+	 * @return OffsetDateTime for a timestamp, Duration for an interval
+	 * (fractions of seconds are ignored in both cases)
+	 */
+	public static Object convertCimDateTimeOrInterval(final String stringValue) {
+		if (stringValue == null) {
+			return null;
+		}
+
+		final Matcher intervalMatcher = CIM_INTERVAL_PATTERN.matcher(stringValue);
+		if (!intervalMatcher.find()) {
+			return convertCimDateTime(stringValue);
+		}
+
+		return Duration
+			.ofDays(Long.parseLong(intervalMatcher.group(1)))
+			.plusHours(Long.parseLong(intervalMatcher.group(2)))
+			.plusMinutes(Long.parseLong(intervalMatcher.group(3)))
+			.plusSeconds(Long.parseLong(intervalMatcher.group(4)));
 	}
 
 	/**

@@ -7,6 +7,7 @@ import com.sun.jna.platform.win32.COM.Wbemcli;
 import com.sun.jna.platform.win32.COM.Wbemcli.IWbemClassObject;
 import com.sun.jna.platform.win32.Variant.VARIANT;
 import com.sun.jna.platform.win32.Variant.VARIANT.ByReference;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -31,14 +32,20 @@ class WmiCimTypeHandlerTest {
 		OffsetDateTime t1 = OffsetDateTime.of(1975, 3, 24, 19, 30, 00, 0, ZoneOffset.ofHours(1));
 		String t1CimString = t1.format(Utils.WBEM_CIM_DATETIME_FORMATTER) + ".000000+060";
 		ByReference cimDateTime1 = new ByReference(new VARIANT(t1CimString));
-		OffsetDateTime convertedT1 = WmiCimTypeHandler.convertCimDateTime(cimDateTime1);
+		OffsetDateTime convertedT1 = (OffsetDateTime) WmiCimTypeHandler.convertCimDateTime(cimDateTime1);
 		assertEquals(t1, convertedT1);
 		assertEquals(164917800, convertedT1.toEpochSecond());
 
 		String t2CimString = t1.format(Utils.WBEM_CIM_DATETIME_FORMATTER) + ".000000+059";
 		ByReference cimDateTime2 = new ByReference(new VARIANT(t2CimString));
-		OffsetDateTime t2 = WmiCimTypeHandler.convertCimDateTime(cimDateTime2);
+		OffsetDateTime t2 = (OffsetDateTime) WmiCimTypeHandler.convertCimDateTime(cimDateTime2);
 		assertEquals(60, t2.toEpochSecond() - t1.toEpochSecond());
+
+		ByReference cimInterval = new ByReference(new VARIANT("00001485050106.000000:000"));
+		assertEquals(
+			Duration.ofDays(1485).plusHours(5).plusMinutes(1).plusSeconds(6),
+			WmiCimTypeHandler.convertCimDateTime(cimInterval)
+		);
 	}
 
 	@Test

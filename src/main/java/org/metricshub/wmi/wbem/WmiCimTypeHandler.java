@@ -20,6 +20,9 @@ package org.metricshub.wmi.wbem;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
+import com.sun.jna.Memory;
+import com.sun.jna.Native;
+import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.COM.COMUtils;
 import com.sun.jna.platform.win32.COM.IUnknown;
 import com.sun.jna.platform.win32.COM.Unknown;
@@ -27,11 +30,13 @@ import com.sun.jna.platform.win32.COM.Wbemcli;
 import com.sun.jna.platform.win32.COM.Wbemcli.IWbemClassObject;
 import com.sun.jna.platform.win32.Guid.REFIID;
 import com.sun.jna.platform.win32.OaIdl.SAFEARRAY;
-import com.sun.jna.platform.win32.OleAuto;
-import com.sun.jna.platform.win32.Variant.VARIANT.ByReference;
+import com.sun.jna.platform.win32.Variant;
+import com.sun.jna.platform.win32.Variant.VARIANT;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
-import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
+import com.sun.jna.win32.StdCallLibrary;
+import com.sun.jna.win32.W32APIOptions;
+import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,29 +61,29 @@ public class WmiCimTypeHandler {
 	/**
 	 * Map of functions that convert WBEM types to Java corresponding class/type
 	 */
-	private static final Map<Integer, Function<ByReference, Object>> CIMTYPE_TO_CONVERTER_MAP;
+	private static final Map<Integer, Function<VARIANT, Object>> CIMTYPE_TO_CONVERTER_MAP;
 
 	static {
-		final Map<Integer, Function<ByReference, Object>> map = new HashMap<>();
+		final Map<Integer, Function<VARIANT, Object>> map = new HashMap<>();
 
 		map.put(Wbemcli.CIM_EMPTY, value -> null);
 
-		map.put(Wbemcli.CIM_BOOLEAN, ByReference::booleanValue);
+		map.put(Wbemcli.CIM_BOOLEAN, VARIANT::booleanValue);
 
-		map.put(Wbemcli.CIM_UINT8, ByReference::byteValue);
-		map.put(Wbemcli.CIM_UINT16, ByReference::intValue);
+		map.put(Wbemcli.CIM_UINT8, VARIANT::byteValue);
+		map.put(Wbemcli.CIM_UINT16, VARIANT::intValue);
 		map.put(Wbemcli.CIM_UINT32, WmiCimTypeHandler::convertCimUint32);
-		map.put(Wbemcli.CIM_UINT64, ByReference::stringValue);
-		map.put(Wbemcli.CIM_SINT8, ByReference::shortValue);
-		map.put(Wbemcli.CIM_SINT16, ByReference::shortValue);
-		map.put(Wbemcli.CIM_SINT32, ByReference::intValue);
-		map.put(Wbemcli.CIM_SINT64, ByReference::stringValue);
+		map.put(Wbemcli.CIM_UINT64, VARIANT::stringValue);
+		map.put(Wbemcli.CIM_SINT8, VARIANT::shortValue);
+		map.put(Wbemcli.CIM_SINT16, VARIANT::shortValue);
+		map.put(Wbemcli.CIM_SINT32, VARIANT::intValue);
+		map.put(Wbemcli.CIM_SINT64, VARIANT::stringValue);
 
-		map.put(Wbemcli.CIM_REAL32, ByReference::floatValue);
-		map.put(Wbemcli.CIM_REAL64, ByReference::doubleValue);
+		map.put(Wbemcli.CIM_REAL32, VARIANT::floatValue);
+		map.put(Wbemcli.CIM_REAL64, VARIANT::doubleValue);
 
-		map.put(Wbemcli.CIM_CHAR16, ByReference::shortValue);
-		map.put(Wbemcli.CIM_STRING, ByReference::stringValue);
+		map.put(Wbemcli.CIM_CHAR16, VARIANT::shortValue);
+		map.put(Wbemcli.CIM_STRING, VARIANT::stringValue);
 
 		map.put(Wbemcli.CIM_REFERENCE, WmiCimTypeHandler::convertCimReference);
 		map.put(Wbemcli.CIM_DATETIME, WmiCimTypeHandler::convertCimDateTime);
@@ -89,7 +94,27 @@ public class WmiCimTypeHandler {
 	private static final String CIM_OBJECT_LABEL = "CIM_OBJECT";
 
 	/**
-	 * Convert a ByReference value holding a CIM_UINT32 (i.e. an unsigned int on 32 bits).
+	 * IWbemClassObject::Get is the 5th method of the IWbemClassObject vtable
+	 */
+	private static final int WBEM_CLASS_OBJECT_GET_VTABLE_ID = 4;
+
+	/**
+	 * Size of a native VARIANT (16 bytes on 32-bit, 24 bytes on 64-bit)
+	 */
+	private static final long VARIANT_SIZE = new VARIANT().size();
+
+	/**
+	 * Offset of the value in a native VARIANT (after vt and 3 reserved WORDs)
+	 */
+	private static final long VARIANT_VALUE_OFFSET = 8;
+
+	/**
+	 * Returned by {@link #convertScalar} when the value is not a scalar it can convert
+	 */
+	static final Object NOT_SCALAR = new Object();
+
+	/**
+	 * Convert a VARIANT value holding a CIM_UINT32 (i.e. an unsigned int on 32 bits).
 	 * <p>
 	 * Unfortunately, there seems to be a bug in either JNA or Wbemcli library which stores
 	 * CIM_UINT32 values as VT_I4 (signed integer). As a result, it's converted to a signed
@@ -100,18 +125,18 @@ public class WmiCimTypeHandler {
 	 * @param cimUint32Value a CIM_UINT32 value... potentially (and wrongly) stored as a VT_I4
 	 * @return always a positive long
 	 */
-	private static long convertCimUint32(final ByReference cimUint32Value) {
+	private static long convertCimUint32(final VARIANT cimUint32Value) {
 		return Integer.toUnsignedLong(cimUint32Value.intValue());
 	}
 
 	/**
-	 * Convert a ByReference value holding a CIM_DATETIME (i.e. a string in the form
+	 * Convert a VARIANT value holding a CIM_DATETIME (i.e. a string in the form
 	 * of <code>yyyymmddHHMMSS.mmmmmmsUUU</code>, or <code>ddddddddHHMMSS.mmmmmm:000</code>
 	 * for an interval) to an OffsetDateTime or a Duration object
-	 * @param value ByReference value with a CIM_DATETIME string
+	 * @param value VARIANT value with a CIM_DATETIME string
 	 * @return OffsetDateTime instance, or Duration instance for an interval
 	 */
-	static Object convertCimDateTime(final ByReference value) {
+	static Object convertCimDateTime(final VARIANT value) {
 		return Utils.convertCimDateTimeOrInterval(value.stringValue());
 	}
 
@@ -120,7 +145,7 @@ public class WmiCimTypeHandler {
 	 * @param value CIM_REFERENCE
 	 * @return a proper String
 	 */
-	static String convertCimReference(final ByReference value) {
+	static String convertCimReference(final VARIANT value) {
 		return WmiCimTypeHandler.convertCimReference(value.stringValue());
 	}
 
@@ -150,7 +175,7 @@ public class WmiCimTypeHandler {
 	 * (example: DriveInfo.Name)
 	 */
 	static Map<String, Object> convertSafeArray(
-		final ByReference array,
+		final VARIANT array,
 		final int cimType,
 		final Entry<String, Set<String>> property
 	) {
@@ -242,7 +267,7 @@ public class WmiCimTypeHandler {
 	 * The key is the property as defined in the select request.
 	 * (example: DriveInfo.Name)
 	 */
-	static Map<String, Object> convertCimObject(final ByReference value, final Entry<String, Set<String>> property) {
+	static Map<String, Object> convertCimObject(final VARIANT value, final Entry<String, Set<String>> property) {
 		final Optional<IWbemClassObject> maybeClassObject = getUnknownWbemClassObject(value.getValue());
 		if (!maybeClassObject.isPresent()) {
 			return property
@@ -334,7 +359,7 @@ public class WmiCimTypeHandler {
 
 	/**
 	 * Convert the specified CIM value into a Java Object depending on its CIM type.
-	 * @param value CIM value (ByReference)
+	 * @param value CIM value (VARIANT)
 	 * @param cimType CIM Type
 	 * @param property The Property to retrieve. An Entry with the property name
 	 * as the key and a set of sub properties to retrieve if exists.
@@ -344,7 +369,7 @@ public class WmiCimTypeHandler {
 	 * (example: DriveInfo.Name)
 	 */
 	static Map<String, Object> convert(
-		final ByReference value,
+		final VARIANT value,
 		final int cimType,
 		final Entry<String, Set<String>> property
 	) {
@@ -392,35 +417,154 @@ public class WmiCimTypeHandler {
 		}
 	}
 
+	/**
+	 * Reads the property into a native VARIANT buffer that is freed as soon as the value is converted.
+	 * <p>
+	 * A JNA {@link VARIANT} structure allocates a native memory block for each pointer field of its union,
+	 * every time it is created or read (about 50 blocks per value), and these blocks are only freed by the
+	 * garbage collector. Scalar values are therefore read straight from the buffer, and the JNA structure
+	 * is only built for arrays, objects and unexpected types.
+	 */
 	private static Map<String, Object> getPropertyValueFromWbemObject(
 		final IWbemClassObject wbemClassObject,
 		final Entry<String, Set<String>> property
 	) {
-		final ByReference value = new ByReference();
-		final IntByReference pType = new IntByReference();
-
-		// Initialize value, to make sure *VariantClear()* won't throw an exception
-		// See https://docs.microsoft.com/en-us/windows/win32/api/wbemcli/nf-wbemcli-iwbemclassobject-get
-		OleAuto.INSTANCE.VariantInit(value);
-
-		try {
-			final HRESULT hResult = wbemClassObject.Get(property.getKey(), 0, value, pType, new IntByReference());
-			if (COMUtils.FAILED(hResult)) {
-				return Collections.singletonMap(property.getKey(), null);
+		// The name is null for a (sub-)property that the class does not define: Get() then fails, and the value is null
+		final String name = property.getKey();
+		try (
+			Memory variant = new Memory(VARIANT_SIZE);
+			Memory pType = new Memory(4);
+			Memory wszName = name == null ? null : new Memory((name.length() + 1L) * Native.WCHAR_SIZE)
+		) {
+			// Initialize value (VT_EMPTY), to make sure *VariantClear()* won't throw an exception
+			// See https://docs.microsoft.com/en-us/windows/win32/api/wbemcli/nf-wbemcli-iwbemclassobject-get
+			variant.clear();
+			if (wszName != null) {
+				wszName.setWideString(0, name);
 			}
 
-			// Special case for __PATH
-			if ("__PATH".equalsIgnoreCase(property.getKey())) {
-				return Collections.singletonMap(property.getKey(), convertCimReference(value));
-			}
-
-			return convert(value, pType.getValue(), property);
-		} finally {
 			try {
-				OleAuto.INSTANCE.VariantClear(value);
-			} catch (final Throwable t) {
-				/* Do nothing -- This condition rarely happens, but it does, and there's nothing we can do about it */
+				final HRESULT hResult = (HRESULT) WmiComHelper.comInvokerInvokeNativeObject(
+					wbemClassObject.getPointer(),
+					WBEM_CLASS_OBJECT_GET_VTABLE_ID,
+					new Object[] { wbemClassObject.getPointer(), wszName, 0, variant, pType, null },
+					HRESULT.class
+				);
+				if (COMUtils.FAILED(hResult)) {
+					return Collections.singletonMap(name, null);
+				}
+
+				// Special case for __PATH
+				final boolean isPath = "__PATH".equalsIgnoreCase(name);
+				final int cimType = isPath ? Wbemcli.CIM_REFERENCE : pType.getInt(0);
+
+				final Object value = convertScalar(variant, cimType);
+				if (value != NOT_SCALAR) {
+					return Collections.singletonMap(name, value);
+				}
+
+				final VARIANT jnaVariant = new VARIANT(variant);
+				return isPath
+					? Collections.singletonMap(name, convertCimReference(jnaVariant))
+					: convert(jnaVariant, cimType, property);
+			} finally {
+				try {
+					OleAutoPointer.INSTANCE.VariantClear(variant);
+				} catch (final Throwable t) {
+					/* Do nothing -- This condition rarely happens, but it does, and there's nothing we can do about it */
+				}
 			}
 		}
+	}
+
+	/**
+	 * Converts the scalar value of a VARIANT, exactly as {@link #convert} does it through the JNA structure.
+	 *
+	 * @param variant Native VARIANT
+	 * @param cimType CIM type of the value
+	 * @return the converted value, or {@link #NOT_SCALAR} when the value must go through {@link #convert}
+	 */
+	static Object convertScalar(final Pointer variant, final int cimType) {
+		final Object value;
+		switch (variant.getShort(0)) {
+			case Variant.VT_EMPTY:
+			case Variant.VT_NULL:
+				return null;
+			case Variant.VT_BSTR:
+				final Pointer bstr = variant.getPointer(VARIANT_VALUE_OFFSET);
+				if (bstr == null) {
+					return null;
+				}
+				value = new String(bstr.getByteArray(0, bstr.getInt(-4)), StandardCharsets.UTF_16LE);
+				break;
+			case Variant.VT_BOOL:
+				return cimType == Wbemcli.CIM_BOOLEAN ? variant.getShort(VARIANT_VALUE_OFFSET) != 0 : NOT_SCALAR;
+			case Variant.VT_UI1:
+				// JNA's BYTE gives the unsigned value as an int, but the signed one as a float or a double
+				if (cimType == Wbemcli.CIM_REAL32 || cimType == Wbemcli.CIM_REAL64) {
+					return NOT_SCALAR;
+				}
+				value = variant.getByte(VARIANT_VALUE_OFFSET) & 0xFF;
+				break;
+			case Variant.VT_I2:
+				value = variant.getShort(VARIANT_VALUE_OFFSET);
+				break;
+			case Variant.VT_I4:
+				value = variant.getInt(VARIANT_VALUE_OFFSET);
+				break;
+			case Variant.VT_R4:
+				value = variant.getFloat(VARIANT_VALUE_OFFSET);
+				break;
+			case Variant.VT_R8:
+				value = variant.getDouble(VARIANT_VALUE_OFFSET);
+				break;
+			default:
+				return NOT_SCALAR;
+		}
+
+		if (value instanceof String) {
+			switch (cimType) {
+				case Wbemcli.CIM_STRING:
+				case Wbemcli.CIM_UINT64:
+				case Wbemcli.CIM_SINT64:
+					return value;
+				case Wbemcli.CIM_REFERENCE:
+					return convertCimReference((String) value);
+				case Wbemcli.CIM_DATETIME:
+					return Utils.convertCimDateTimeOrInterval((String) value);
+				default:
+					return NOT_SCALAR;
+			}
+		}
+
+		final Number number = (Number) value;
+		switch (cimType) {
+			case Wbemcli.CIM_UINT8:
+				return number.byteValue();
+			case Wbemcli.CIM_UINT16:
+			case Wbemcli.CIM_SINT32:
+				return number.intValue();
+			case Wbemcli.CIM_UINT32:
+				return Integer.toUnsignedLong(number.intValue());
+			case Wbemcli.CIM_SINT8:
+			case Wbemcli.CIM_SINT16:
+			case Wbemcli.CIM_CHAR16:
+				return number.shortValue();
+			case Wbemcli.CIM_REAL32:
+				return number.floatValue();
+			case Wbemcli.CIM_REAL64:
+				return number.doubleValue();
+			default:
+				return NOT_SCALAR;
+		}
+	}
+
+	/**
+	 * VariantClear() on a native VARIANT buffer (JNA's OleAuto only accepts its VARIANT structure).
+	 */
+	interface OleAutoPointer extends StdCallLibrary {
+		OleAutoPointer INSTANCE = Native.load("OleAut32", OleAutoPointer.class, W32APIOptions.DEFAULT_OPTIONS);
+
+		HRESULT VariantClear(Pointer pvarg);
 	}
 }

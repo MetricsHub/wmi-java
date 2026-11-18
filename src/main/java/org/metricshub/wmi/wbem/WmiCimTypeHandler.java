@@ -34,8 +34,6 @@ import com.sun.jna.platform.win32.Variant;
 import com.sun.jna.platform.win32.Variant.VARIANT;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
 import com.sun.jna.ptr.PointerByReference;
-import com.sun.jna.win32.StdCallLibrary;
-import com.sun.jna.win32.W32APIOptions;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -107,6 +105,15 @@ public class WmiCimTypeHandler {
 	 * Offset of the value in a native VARIANT (after vt and 3 reserved WORDs)
 	 */
 	private static final long VARIANT_VALUE_OFFSET = 8;
+
+	/**
+	 * VariantClear() on a native VARIANT buffer (JNA's OleAuto only accepts its VARIANT structure)
+	 */
+	private static final com.sun.jna.Function VARIANT_CLEAR = com.sun.jna.Function.getFunction(
+		"OleAut32",
+		"VariantClear",
+		com.sun.jna.Function.ALT_CONVENTION
+	);
 
 	/**
 	 * Returned by {@link #convertScalar} when the value is not a scalar it can convert
@@ -469,7 +476,7 @@ public class WmiCimTypeHandler {
 					: convert(jnaVariant, cimType, property);
 			} finally {
 				try {
-					OleAutoPointer.INSTANCE.VariantClear(variant);
+					VARIANT_CLEAR.invokeInt(new Object[] { variant });
 				} catch (final Throwable t) {
 					/* Do nothing -- This condition rarely happens, but it does, and there's nothing we can do about it */
 				}
@@ -557,14 +564,5 @@ public class WmiCimTypeHandler {
 			default:
 				return NOT_SCALAR;
 		}
-	}
-
-	/**
-	 * VariantClear() on a native VARIANT buffer (JNA's OleAuto only accepts its VARIANT structure).
-	 */
-	interface OleAutoPointer extends StdCallLibrary {
-		OleAutoPointer INSTANCE = Native.load("OleAut32", OleAutoPointer.class, W32APIOptions.DEFAULT_OPTIONS);
-
-		HRESULT VariantClear(Pointer pvarg);
 	}
 }

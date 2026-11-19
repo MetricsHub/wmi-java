@@ -20,6 +20,8 @@ package org.metricshub.wmi.wbem;
  * ╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱╲╱
  */
 
+import com.sun.jna.Memory;
+import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.WString;
 import com.sun.jna.platform.win32.COM.COMException;
@@ -39,8 +41,8 @@ import com.sun.jna.platform.win32.Variant.VARIANT;
 import com.sun.jna.platform.win32.Variant.VARIANT.ByReference;
 import com.sun.jna.platform.win32.WTypes;
 import com.sun.jna.platform.win32.WTypes.BSTR;
+import com.sun.jna.platform.win32.WinDef;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
-import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.PointerByReference;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -650,6 +652,7 @@ public class WmiWbemServices implements WindowsRemoteExecutor {
 
 	private static final int SET_VALUE_FUNCTION_VTABLE_ID_IN_WBEM_CONTEXT_INTERFACE = 8;
 
+	private static final int ENUM_WBEM_CLASS_OBJECT_NEXT_VTABLE_ID = 4;
 	private static final int WBEM_SERVICES_GET_OBJECT_VTABLE_ID = 6;
 	private static final int WBEM_SERVICES_EXEC_METHOD_VTABLE_ID = 24;
 
@@ -1020,7 +1023,6 @@ public class WmiWbemServices implements WindowsRemoteExecutor {
 		final long timeout,
 		final Map<String, Set<String>> properties
 	) throws TimeoutException, WmiComException, WqlQuerySyntaxException {
-		final Pointer[] pointersOnWbemClassObject = new Pointer[1];
 		final List<Map<String, Object>> resultRows = new ArrayList<>();
 		String[] names = null;
 		Map<String, Set<String>> normalizedProperties = null;
@@ -1029,55 +1031,59 @@ public class WmiWbemServices implements WindowsRemoteExecutor {
 			setProxySecurity(wbemClassObjectQueryResult.getPointer(), authIdent);
 		}
 
-		while (wbemClassObjectQueryResult.getPointer() != Pointer.NULL) {
-			// Get the next record
-			final HRESULT hResult = wbemClassObjectQueryResult.Next(
-				(int) timeout,
-				pointersOnWbemClassObject.length,
-				pointersOnWbemClassObject,
-				new IntByReference(0)
-			);
+		// Native buffers reused for each record and freed on return, instead of
+		// a Pointer[] and an IntByReference per record left to the garbage collector
+		try (Memory ppObject = new Memory(Native.POINTER_SIZE); Memory puReturned = new Memory(WinDef.ULONG.SIZE)) {
+			while (wbemClassObjectQueryResult.getPointer() != Pointer.NULL) {
+				// Get the next record
+				final HRESULT hResult = (HRESULT) WmiComHelper.comInvokerInvokeNativeObject(
+					wbemClassObjectQueryResult.getPointer(),
+					ENUM_WBEM_CLASS_OBJECT_NEXT_VTABLE_ID,
+					new Object[] { wbemClassObjectQueryResult.getPointer(), (int) timeout, 1, ppObject, puReturned },
+					HRESULT.class
+				);
 
-			// Any problem?
-			if (
-				hResult == null ||
-				hResult.intValue() == Wbemcli.WBEM_S_FALSE ||
-				hResult.intValue() == Wbemcli.WBEM_S_NO_MORE_DATA
-			) {
-				return resultRows;
-			}
-			if (hResult.intValue() == Wbemcli.WBEM_S_TIMEDOUT) {
-				throw new TimeoutException("No results after " + timeout + " ms.");
-			}
-			if (Integer.toUnsignedLong(hResult.intValue()) == 2147749911L) {
-				throw new WqlQuerySyntaxException("The query was not syntactically valid.");
-			}
-			checkHResult(hResult, "Failed to enumerate results");
+				// Any problem?
+				if (
+					hResult == null ||
+					hResult.intValue() == Wbemcli.WBEM_S_FALSE ||
+					hResult.intValue() == Wbemcli.WBEM_S_NO_MORE_DATA
+				) {
+					return resultRows;
+				}
+				if (hResult.intValue() == Wbemcli.WBEM_S_TIMEDOUT) {
+					throw new TimeoutException("No results after " + timeout + " ms.");
+				}
+				if (Integer.toUnsignedLong(hResult.intValue()) == 2147749911L) {
+					throw new WqlQuerySyntaxException("The query was not syntactically valid.");
+				}
+				checkHResult(hResult, "Failed to enumerate results");
 
-			// Get the actual WbemClassObject
-			final IWbemClassObject wbemClassObject = new IWbemClassObject(pointersOnWbemClassObject[0]);
+				// Get the actual WbemClassObject
+				final IWbemClassObject wbemClassObject = new IWbemClassObject(ppObject.getPointer(0));
 
-			try {
-				// Get the list of properties in the first record
-				// Note: this is done only the first time in this loop
-				if (names == null) {
-					try {
-						names = wbemClassObject.GetNames(null, 0, null);
-					} catch (final Throwable e) {
-						names = wbemClassObject.GetNames(null, 0, null);
+				try {
+					// Get the list of properties in the first record
+					// Note: this is done only the first time in this loop
+					if (names == null) {
+						try {
+							names = wbemClassObject.GetNames(null, 0, null);
+						} catch (final Throwable e) {
+							names = wbemClassObject.GetNames(null, 0, null);
+						}
 					}
-				}
 
-				if (normalizedProperties == null) {
-					normalizedProperties = normalizeProperties(names, properties);
-				}
+					if (normalizedProperties == null) {
+						normalizedProperties = normalizeProperties(names, properties);
+					}
 
-				// Add to the result
-				final Map<String, Object> values = getPropertiesValues(normalizedProperties, wbemClassObject);
-				resultRows.add(values);
-			} finally {
-				// Free memory for this WBEM object instance
-				wbemClassObject.Release();
+					// Add to the result
+					final Map<String, Object> values = getPropertiesValues(normalizedProperties, wbemClassObject);
+					resultRows.add(values);
+				} finally {
+					// Free memory for this WBEM object instance
+					wbemClassObject.Release();
+				}
 			}
 		}
 

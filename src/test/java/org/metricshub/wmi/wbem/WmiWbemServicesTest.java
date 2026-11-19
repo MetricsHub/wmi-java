@@ -2,11 +2,15 @@ package org.metricshub.wmi.wbem;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.sun.jna.Memory;
 import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.OleAuto;
 import com.sun.jna.platform.win32.Variant;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
 import java.lang.Thread.UncaughtExceptionHandler;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.lang.reflect.Field;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -604,5 +608,87 @@ class WmiWbemServicesTest {
 
 		assertEquals(threadCount / 2, failureCount.get(), "Exception must have been thrown for each failed query");
 		assertEquals(threadCount / 2, resultCount.get(), "Each successful query must have returned 1 record");
+	}
+
+	@Test
+	@Order(40)
+	void testQueryLeavesNoNativeMemoryToTheGarbageCollector() throws Exception {
+		final String query = "SELECT Name, ProcessId, ThreadCount, HandleCount, CreationDate FROM Win32_Process";
+		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/cimv2", null, null)) {
+			// Warm-up: JNA allocates its one-time structures on the first query
+			wmiWbemServices.executeWql(query, 30000);
+
+			// A garbage collection frees blocks during the query and hides the ones the query left:
+			// only a query that ran without any garbage collection is measured
+			for (int attempt = 0; attempt < 5; attempt++) {
+				drainGarbageCollectedNativeMemory();
+				final long collections = garbageCollectionCount();
+				final int before = allocatedNativeMemoryCount();
+				final List<Map<String, Object>> result = wmiWbemServices.executeWql(query, 30000);
+				final int leftToGc = allocatedNativeMemoryCount() - before;
+				if (garbageCollectionCount() != collections) {
+					continue;
+				}
+
+				assertTrue(result.size() > 10, "Win32_Process must list the running processes");
+				assertTrue(
+					leftToGc >= 0 && leftToGc < 20,
+					() -> leftToGc + " JNA Memory blocks left to the garbage collector for " + result.size() + " rows"
+				);
+				return;
+			}
+			fail("A garbage collection ran during each of the 5 queries");
+		}
+	}
+
+	@Test
+	@Order(41)
+	void testUnknownEmbeddedObjectPropertyIsNull() throws Exception {
+		try (WmiWbemServices wmiWbemServices = WmiWbemServices.getInstance("root/wmi", null, null)) {
+			final List<Map<String, Object>> result = wmiWbemServices.executeWql(
+				"SELECT InstanceName, PerfData.NoSuchProperty FROM MSDiskDriver_Performance",
+				30000
+			);
+
+			assertFalse(result.isEmpty(), "MSDiskDriver_Performance must list the disks");
+			for (final Map<String, Object> row : result) {
+				assertNotNull(row.get("InstanceName"));
+				assertTrue(row.containsKey("PerfData.null"), row::toString);
+				assertNull(row.get("PerfData.null"));
+			}
+		}
+	}
+
+	/**
+	 * @return the number of native memory blocks allocated by JNA and not freed yet
+	 */
+	private static int allocatedNativeMemoryCount() throws ReflectiveOperationException {
+		final Field field = Memory.class.getDeclaredField("allocatedMemory");
+		field.setAccessible(true);
+		return ((Map<?, ?>) field.get(null)).size();
+	}
+
+	/**
+	 * @return the number of garbage collections since the JVM started
+	 */
+	private static long garbageCollectionCount() {
+		return ManagementFactory
+			.getGarbageCollectorMXBeans()
+			.stream()
+			.mapToLong(GarbageCollectorMXBean::getCollectionCount)
+			.sum();
+	}
+
+	/**
+	 * Lets the garbage collector and the JNA cleaner free the blocks that are already unreachable,
+	 * so that they are not freed in the middle of the measured query.
+	 */
+	private static void drainGarbageCollectedNativeMemory() throws ReflectiveOperationException, InterruptedException {
+		System.gc();
+		int previous = -1;
+		for (int i = 0; i < 50 && previous != allocatedNativeMemoryCount(); i++) {
+			previous = allocatedNativeMemoryCount();
+			Thread.sleep(100);
+		}
 	}
 }

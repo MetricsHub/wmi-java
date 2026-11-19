@@ -5,12 +5,17 @@ import static org.mockito.ArgumentMatchers.*;
 
 import com.sun.jna.platform.win32.COM.Wbemcli;
 import com.sun.jna.platform.win32.COM.Wbemcli.IWbemClassObject;
+import com.sun.jna.platform.win32.OleAuto;
+import com.sun.jna.platform.win32.Variant;
 import com.sun.jna.platform.win32.Variant.VARIANT;
 import com.sun.jna.platform.win32.Variant.VARIANT.ByReference;
+import com.sun.jna.platform.win32.WTypes.BSTR;
+import com.sun.jna.platform.win32.WinDef.BYTE;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
@@ -198,6 +203,103 @@ class WmiCimTypeHandlerTest {
 			expected.put("DriveInfo.SerialNumber", "624A937068B04CE438B46F8A00011BBB");
 
 			assertEquals(expected, WmiCimTypeHandler.convertCimObject(value, property));
+		}
+	}
+
+	@Test
+	void testConvertScalarReturnsWhatConvertReturns() {
+		final VARIANT vtNull = new VARIANT();
+		vtNull.setVarType((short) Variant.VT_NULL);
+		final List<VARIANT> values = Arrays.asList(
+			new VARIANT(),
+			vtNull,
+			new VARIANT(new BSTR()),
+			new VARIANT(""),
+			new VARIANT("abc"),
+			new VARIANT("\\\\HOST\\root\\cimv2:Win32_Process.Handle=\"4\""),
+			new VARIANT("20261118123456.123456+060"),
+			new VARIANT("00001485050106.000000:000"),
+			new VARIANT("18446744073709551615"),
+			new VARIANT(true),
+			new VARIANT(false),
+			new VARIANT(new BYTE(200)),
+			new VARIANT(new BYTE(5)),
+			new VARIANT((short) -5),
+			new VARIANT(Short.MAX_VALUE),
+			new VARIANT(-1),
+			new VARIANT(123),
+			new VARIANT(1.5f),
+			new VARIANT(-2.25d),
+			new VARIANT((byte) -3),
+			new VARIANT('x'),
+			new VARIANT(1L << 40)
+		);
+		final int[] cimTypes = {
+			Wbemcli.CIM_EMPTY,
+			Wbemcli.CIM_SINT8,
+			Wbemcli.CIM_UINT8,
+			Wbemcli.CIM_SINT16,
+			Wbemcli.CIM_UINT16,
+			Wbemcli.CIM_SINT32,
+			Wbemcli.CIM_UINT32,
+			Wbemcli.CIM_SINT64,
+			Wbemcli.CIM_UINT64,
+			Wbemcli.CIM_REAL32,
+			Wbemcli.CIM_REAL64,
+			Wbemcli.CIM_BOOLEAN,
+			Wbemcli.CIM_STRING,
+			Wbemcli.CIM_DATETIME,
+			Wbemcli.CIM_REFERENCE,
+			Wbemcli.CIM_CHAR16,
+			Wbemcli.CIM_OBJECT,
+			Wbemcli.CIM_FLAG_ARRAY | Wbemcli.CIM_SINT32,
+			999
+		};
+		final Map.Entry<String, Set<String>> property = new AbstractMap.SimpleEntry<>("p", Collections.emptySet());
+
+		int converted = 0;
+		try {
+			for (final VARIANT value : values) {
+				value.write();
+				for (final int cimType : cimTypes) {
+					final String context = "vt=" + value.getVarType().intValue() + " cimType=" + cimType;
+					final Object actual = outcome(() -> WmiCimTypeHandler.convertScalar(value.getPointer(), cimType));
+					if (actual == WmiCimTypeHandler.NOT_SCALAR) {
+						continue;
+					}
+					final Object expected = outcome(() -> WmiCimTypeHandler.convert(value, cimType, property).get("p"));
+					if (expected instanceof Throwable || actual instanceof Throwable) {
+						// Both paths must fail the same way (the caller retries, then lets the exception go)
+						assertEquals(String.valueOf(expected), String.valueOf(actual), context);
+						continue;
+					}
+					assertEquals(expected, actual, context);
+					assertEquals(
+						expected == null ? null : expected.getClass(),
+						actual == null ? null : actual.getClass(),
+						context
+					);
+					converted++;
+				}
+			}
+		} finally {
+			values.forEach(OleAuto.INSTANCE::VariantClear);
+		}
+
+		assertTrue(converted > 70, converted + " values converted without the JNA structure");
+		final VARIANT minusOne = new VARIANT(-1);
+		minusOne.write();
+		assertEquals(4294967295L, WmiCimTypeHandler.convertScalar(minusOne.getPointer(), Wbemcli.CIM_UINT32));
+	}
+
+	/**
+	 * @return the value returned by the supplier, or the exception it threw
+	 */
+	private static Object outcome(final Supplier<Object> supplier) {
+		try {
+			return supplier.get();
+		} catch (final Throwable t) {
+			return t;
 		}
 	}
 }

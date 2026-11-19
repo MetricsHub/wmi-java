@@ -32,6 +32,7 @@ import com.sun.jna.platform.win32.Guid.REFIID;
 import com.sun.jna.platform.win32.OaIdl.SAFEARRAY;
 import com.sun.jna.platform.win32.Variant;
 import com.sun.jna.platform.win32.Variant.VARIANT;
+import com.sun.jna.platform.win32.WinDef;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
 import com.sun.jna.ptr.PointerByReference;
 import java.nio.charset.StandardCharsets;
@@ -440,7 +441,7 @@ public class WmiCimTypeHandler {
 		final String name = property.getKey();
 		try (
 			Memory variant = new Memory(VARIANT_SIZE);
-			Memory pType = new Memory(4);
+			Memory pType = new Memory(WinDef.LONG.SIZE);
 			Memory wszName = name == null ? null : new Memory((name.length() + 1L) * Native.WCHAR_SIZE)
 		) {
 			// Initialize value (VT_EMPTY), to make sure *VariantClear()* won't throw an exception

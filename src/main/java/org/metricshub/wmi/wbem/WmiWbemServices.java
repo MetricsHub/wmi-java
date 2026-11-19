@@ -41,6 +41,7 @@ import com.sun.jna.platform.win32.Variant.VARIANT;
 import com.sun.jna.platform.win32.Variant.VARIANT.ByReference;
 import com.sun.jna.platform.win32.WTypes;
 import com.sun.jna.platform.win32.WTypes.BSTR;
+import com.sun.jna.platform.win32.WinDef;
 import com.sun.jna.platform.win32.WinNT.HRESULT;
 import com.sun.jna.ptr.PointerByReference;
 import java.nio.charset.Charset;
@@ -1032,7 +1033,7 @@ public class WmiWbemServices implements WindowsRemoteExecutor {
 
 		// Native buffers reused for each record and freed on return, instead of
 		// a Pointer[] and an IntByReference per record left to the garbage collector
-		try (Memory ppObject = new Memory(Native.POINTER_SIZE); Memory puReturned = new Memory(4)) {
+		try (Memory ppObject = new Memory(Native.POINTER_SIZE); Memory puReturned = new Memory(WinDef.ULONG.SIZE)) {
 			while (wbemClassObjectQueryResult.getPointer() != Pointer.NULL) {
 				// Get the next record
 				final HRESULT hResult = (HRESULT) WmiComHelper.comInvokerInvokeNativeObject(
